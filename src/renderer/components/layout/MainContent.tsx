@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useFolderStore } from '../../stores/folder.store';
 import { useSettingsStore } from '../../stores/settings.store';
-import { StarIcon, CopyIcon, HistoryIcon, HashIcon, ClockIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon } from 'lucide-react';
+import { StarIcon, CopyIcon, HistoryIcon, HashIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon, ClockIcon } from 'lucide-react';
 import { EditPromptModal, VersionHistoryModal } from '../prompt';
 import { useToast } from '../ui/Toast';
 import { chatCompletion, buildMessagesFromPrompt, multiModelCompare, AITestResult } from '../../services/ai';
 import { useTranslation } from 'react-i18next';
 import type { Prompt, PromptVersion } from '../../../shared/types';
 
-// Prompt 卡片组件（暂时禁用拖拽，优先保证点击功能）
+// Prompt 卡片组件（紧凑版本）
 function PromptCard({ 
   prompt, 
   isSelected, 
@@ -23,7 +23,7 @@ function PromptCard({
     <div
       onClick={onSelect}
       className={`
-        w-full text-left p-4 rounded-xl cursor-pointer
+        w-full text-left px-3 py-2.5 rounded-lg cursor-pointer
         transition-colors duration-150
         ${isSelected
           ? 'bg-primary text-white'
@@ -31,32 +31,21 @@ function PromptCard({
         }
       `}
     >
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <h3 className="font-semibold truncate">{prompt.title}</h3>
-        <div className="flex items-center gap-1">
-          {prompt.isFavorite && (
-            <StarIcon className={`w-4 h-4 flex-shrink-0 ${
-              isSelected ? 'fill-white text-white' : 'fill-yellow-400 text-yellow-400'
-            }`} />
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-medium truncate text-sm">{prompt.title}</h3>
+        {prompt.isFavorite && (
+          <StarIcon className={`w-3.5 h-3.5 flex-shrink-0 ${
+            isSelected ? 'fill-white text-white' : 'fill-yellow-400 text-yellow-400'
+          }`} />
+        )}
       </div>
       {prompt.description && (
-        <p className={`text-sm truncate mb-2 ${
-          isSelected ? 'text-white/80' : 'text-muted-foreground'
+        <p className={`text-xs truncate mt-0.5 ${
+          isSelected ? 'text-white/70' : 'text-muted-foreground'
         }`}>
           {prompt.description}
         </p>
       )}
-      <div className={`flex items-center gap-3 text-xs ${
-        isSelected ? 'text-white/60' : 'text-muted-foreground'
-      }`}>
-        <span className="flex items-center gap-1">
-          <ClockIcon className="w-3 h-3" />
-          {new Date(prompt.updatedAt).toLocaleDateString()}
-        </span>
-        <span>v{prompt.version}</span>
-      </div>
     </div>
   );
 }
@@ -80,16 +69,26 @@ export function MainContent() {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [isComparingModels, setIsComparingModels] = useState(false);
-  const [compareModelsInput, setCompareModelsInput] = useState('');
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const [compareResults, setCompareResults] = useState<AITestResult[] | null>(null);
   const [compareError, setCompareError] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  // 切换 Prompt 时清除对比结果
+  useEffect(() => {
+    setSelectedModelIds([]);
+    setCompareResults(null);
+    setCompareError(null);
+    setShowAiPanel(false);
+    setAiResponse(null);
+  }, [selectedId]);
   
   // AI 配置
   const aiProvider = useSettingsStore((state) => state.aiProvider);
   const aiApiKey = useSettingsStore((state) => state.aiApiKey);
   const aiApiUrl = useSettingsStore((state) => state.aiApiUrl);
   const aiModel = useSettingsStore((state) => state.aiModel);
+  const aiModels = useSettingsStore((state) => state.aiModels);
 
   const handleRestoreVersion = async (version: PromptVersion) => {
     if (selectedPrompt) {
@@ -97,7 +96,7 @@ export function MainContent() {
         systemPrompt: version.systemPrompt,
         userPrompt: version.userPrompt,
       });
-      showToast('已恢复到历史版本', 'success');
+      showToast(t('toast.restored'), 'success');
     }
   };
 
@@ -192,16 +191,10 @@ export function MainContent() {
             <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
               <span className="flex items-center gap-1.5">
                 <ClockIcon className="w-4 h-4" />
-                更新于 {new Date(selectedPrompt.updatedAt).toLocaleString('zh-CN', { 
-                  year: 'numeric', 
-                  month: '2-digit', 
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                {t('prompt.updatedAt')} {new Date(selectedPrompt.updatedAt).toLocaleString()}
               </span>
               <span className="px-2 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-medium">
-                版本 {selectedPrompt.version}
+                {t('prompt.versionLabel', { version: selectedPrompt.version })}
               </span>
             </div>
 
@@ -247,106 +240,132 @@ export function MainContent() {
             </div>
 
             {/* 多模型对比区域 */}
-            <div className="mb-8 p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 mb-4">
-                <GitCompareIcon className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">多模型对比</span>
-                <span className="text-xs text-muted-foreground">同一 Prompt，使用多个模型对比响应</span>
-              </div>
-              <div className="flex flex-col gap-2 mb-3">
-                <label className="text-xs text-muted-foreground">模型列表（逗号分隔，将自动包含当前模型 {aiModel}）</label>
-                <input
-                  type="text"
-                  value={compareModelsInput}
-                  onChange={(e) => setCompareModelsInput(e.target.value)}
-                  placeholder="例如：gpt-4o,gpt-4o-mini,deepseek-chat"
-                  className="h-9 px-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <button
-                onClick={async () => {
-                  if (!aiApiKey || !aiApiUrl || !aiModel) {
-                    showToast('请先在设置中配置 AI 模型', 'error');
-                    return;
-                  }
-                  if (!selectedPrompt) return;
-
-                  const extraModels = compareModelsInput
-                    .split(',')
-                    .map((m) => m.trim())
-                    .filter((m) => m.length > 0 && m !== aiModel);
-
-                  const uniqueModels = Array.from(new Set([aiModel, ...extraModels]));
-
-                  if (uniqueModels.length < 2) {
-                    showToast('请至少配置两个不同的模型名称', 'error');
-                    return;
-                  }
-
-                  const configs = uniqueModels.map((modelName) => ({
-                    provider: aiProvider,
-                    apiKey: aiApiKey,
-                    apiUrl: aiApiUrl,
-                    model: modelName,
-                  }));
-
-                  const messages = buildMessagesFromPrompt(
-                    selectedPrompt.systemPrompt,
-                    selectedPrompt.userPrompt
-                  );
-
-                  setIsComparingModels(true);
-                  setCompareResults(null);
-                  setCompareError(null);
-                  try {
-                    const result = await multiModelCompare(configs, messages);
-                    setCompareResults(result.results);
-                  } catch (error) {
-                    setCompareError(error instanceof Error ? error.message : '未知错误');
-                  } finally {
-                    setIsComparingModels(false);
-                  }
-                }}
-                disabled={isComparingModels}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {isComparingModels ? (
-                  <LoaderIcon className="w-3 h-3 animate-spin" />
-                ) : (
-                  <GitCompareIcon className="w-3 h-3" />
-                )}
-                <span>{isComparingModels ? '对比中...' : '开始对比测试'}</span>
-              </button>
-
-              {compareError && (
-                <p className="mt-2 text-xs text-red-500">{compareError}</p>
-              )}
-
-              {compareResults && compareResults.length > 0 && (
-                <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {compareResults.map((res) => (
-                    <div
-                      key={`${res.provider}-${res.model}`}
-                      className={`p-3 rounded-lg border text-xs space-y-2 ${
-                        res.success ? 'border-emerald-400/50 bg-emerald-500/5' : 'border-red-400/50 bg-red-500/5'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="font-medium truncate">
-                          {res.model}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {res.latency}ms
-                        </div>
-                      </div>
-                      <div className="text-[11px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
-                        {res.success ? (res.response || '(空)') : (res.error || '未知错误')}
-                      </div>
-                    </div>
-                  ))}
+            {aiModels.length > 0 && (
+              <div className="mb-8 p-5 rounded-2xl bg-card border border-border">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <GitCompareIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">{t('settings.multiModelCompare')}</span>
+                    <span className="text-xs text-muted-foreground">{t('prompt.selectModelsHint')}</span>
+                  </div>
                 </div>
-              )}
-            </div>
+                
+                {/* 模型选择列表 */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {aiModels.map((model) => {
+                    const isSelected = selectedModelIds.includes(model.id);
+                    return (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedModelIds(selectedModelIds.filter((id) => id !== model.id));
+                          } else {
+                            setSelectedModelIds([...selectedModelIds, model.id]);
+                          }
+                        }}
+                        className={`
+                          px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                          ${isSelected
+                            ? 'bg-primary text-white'
+                            : 'bg-muted hover:bg-accent text-foreground'
+                          }
+                        `}
+                      >
+                        {model.model}
+                        {model.isDefault && (
+                          <span className="ml-1 opacity-60">★</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="flex items-center justify-end gap-3">
+                  {selectedModelIds.length > 0 && (
+                    <button
+                      onClick={() => setSelectedModelIds([])}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {t('prompt.clearSelection')}
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (selectedModelIds.length < 2) {
+                        showToast(t('prompt.selectAtLeast2'), 'error');
+                        return;
+                      }
+                      if (!selectedPrompt) return;
+
+                      const selectedConfigs = aiModels
+                        .filter((m) => selectedModelIds.includes(m.id))
+                        .map((m) => ({
+                          provider: m.provider,
+                          apiKey: m.apiKey,
+                          apiUrl: m.apiUrl,
+                          model: m.model,
+                        }));
+
+                      const messages = buildMessagesFromPrompt(
+                        selectedPrompt.systemPrompt,
+                        selectedPrompt.userPrompt
+                      );
+
+                      setIsComparingModels(true);
+                      setCompareResults(null);
+                      setCompareError(null);
+                      try {
+                        const result = await multiModelCompare(selectedConfigs, messages);
+                        setCompareResults(result.results);
+                      } catch (error) {
+                        setCompareError(error instanceof Error ? error.message : t('common.error'));
+                      } finally {
+                        setIsComparingModels(false);
+                      }
+                    }}
+                    disabled={isComparingModels || selectedModelIds.length < 2}
+                    className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    {isComparingModels ? (
+                      <LoaderIcon className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <GitCompareIcon className="w-3 h-3" />
+                    )}
+                    <span>{isComparingModels ? t('prompt.comparing') : t('prompt.compareModels', { count: selectedModelIds.length })}</span>
+                  </button>
+                </div>
+
+                {compareError && (
+                  <p className="mt-3 text-xs text-red-500">{compareError}</p>
+                )}
+
+                {compareResults && compareResults.length > 0 && (
+                  <div className="mt-4 grid md:grid-cols-2 gap-3">
+                    {compareResults.map((res) => (
+                      <div
+                        key={`${res.provider}-${res.model}`}
+                        className={`p-3 rounded-lg border text-xs space-y-2 ${
+                          res.success ? 'border-emerald-400/50 bg-emerald-500/5' : 'border-red-400/50 bg-red-500/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium truncate">
+                            {res.model}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {res.latency}ms
+                          </div>
+                        </div>
+                        <div className="text-[11px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                          {res.success ? (res.response || '(空)') : (res.error || '未知错误')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 操作按钮 - iOS 风格 */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -368,12 +387,12 @@ export function MainContent() {
                 "
               >
                 {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
-                <span>{copied ? '已复制' : '复制 Prompt'}</span>
+                <span>{copied ? t('prompt.copied') : t('prompt.copy')}</span>
               </button>
               <button 
                 onClick={async () => {
                   if (!aiApiKey) {
-                    showToast('请先在设置中配置 AI 模型', 'error');
+                    showToast(t('toast.configAI'), 'error');
                     return;
                   }
                   setShowAiPanel(true);
@@ -390,8 +409,8 @@ export function MainContent() {
                     );
                     setAiResponse(response);
                   } catch (error) {
-                    setAiResponse(`错误: ${error instanceof Error ? error.message : '未知错误'}`);
-                    showToast('AI 调用失败', 'error');
+                    setAiResponse(`${t('common.error')}: ${error instanceof Error ? error.message : t('common.error')}`);
+                    showToast(t('toast.aiFailed'), 'error');
                   } finally {
                     setIsTestingAI(false);
                   }
@@ -405,7 +424,7 @@ export function MainContent() {
                 "
               >
                 {isTestingAI ? <LoaderIcon className="w-4 h-4 animate-spin" /> : <PlayIcon className="w-4 h-4" />}
-                <span>{isTestingAI ? '测试中...' : 'AI 测试'}</span>
+                <span>{isTestingAI ? t('prompt.testing') : t('prompt.aiTest')}</span>
               </button>
               <button 
                 onClick={() => setIsVersionModalOpen(true)}
@@ -417,13 +436,13 @@ export function MainContent() {
                 "
               >
                 <HistoryIcon className="w-4 h-4" />
-                <span>历史版本</span>
+                <span>{t('prompt.history')}</span>
               </button>
               <button 
                 onClick={async () => {
-                  if (confirm('确定要删除这个 Prompt 吗？')) {
+                  if (confirm(t('prompt.confirmDeletePrompt'))) {
                     await deletePrompt(selectedPrompt.id);
-                    showToast('Prompt 已删除', 'success');
+                    showToast(t('prompt.promptDeleted'), 'success');
                   }
                 }}
                 className="
@@ -434,7 +453,7 @@ export function MainContent() {
                 "
               >
                 <TrashIcon className="w-4 h-4" />
-                <span>删除</span>
+                <span>{t('prompt.delete')}</span>
               </button>
             </div>
 
@@ -444,7 +463,7 @@ export function MainContent() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <SparklesIcon className="w-4 h-4 text-green-500" />
-                    <span className="text-sm font-medium">AI 响应</span>
+                    <span className="text-sm font-medium">{t('prompt.aiResponse')}</span>
                     <span className="text-xs text-muted-foreground">({aiModel})</span>
                   </div>
                   <button
@@ -458,24 +477,24 @@ export function MainContent() {
                   {isTestingAI ? (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <LoaderIcon className="w-4 h-4 animate-spin" />
-                      <span>正在调用 AI...</span>
+                      <span>{t('prompt.callingAI')}</span>
                     </div>
                   ) : aiResponse ? (
                     aiResponse
                   ) : (
-                    <span className="text-muted-foreground">等待响应...</span>
+                    <span className="text-muted-foreground">{t('prompt.waitingResponse')}</span>
                   )}
                 </div>
                 {aiResponse && !isTestingAI && (
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(aiResponse);
-                      showToast('已复制 AI 响应', 'success');
+                      showToast(t('prompt.responseCopied'), 'success');
                     }}
                     className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <CopyIcon className="w-3 h-3" />
-                    复制响应
+                    {t('prompt.copyResponse')}
                   </button>
                 )}
               </div>
@@ -501,9 +520,9 @@ export function MainContent() {
             <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
               <SparklesIcon className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">选择一个 Prompt</h3>
+            <h3 className="text-xl font-semibold text-foreground mb-2">{t('prompt.selectPrompt')}</h3>
             <p className="text-muted-foreground max-w-sm">
-              从左侧列表选择一个 Prompt 查看详情，或点击「新建」创建新的 Prompt
+              {t('prompt.selectPromptDesc')}
             </p>
           </div>
         )}

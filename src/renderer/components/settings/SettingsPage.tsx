@@ -21,6 +21,10 @@ import {
   PlayIcon,
   Loader2Icon,
   ZapIcon,
+  PlusIcon,
+  TrashIcon,
+  StarIcon,
+  EditIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { downloadBackup, restoreFromFile, clearDatabase } from '../../services/database';
@@ -28,6 +32,7 @@ import { testConnection, uploadToWebDAV, downloadFromWebDAV } from '../../servic
 import { testAIConnection, testImageGeneration, AITestResult, ImageTestResult } from '../../services/ai';
 import { useSettingsStore, MORANDI_THEMES, FONT_SIZES, ThemeMode } from '../../stores/settings.store';
 import { useToast } from '../ui/Toast';
+import { Select, SelectOption } from '../ui/Select';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -96,6 +101,46 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [imageSize, setImageSize] = useState<ImageSize>('1024x1024');
   const [imageQuality, setImageQuality] = useState<ImageQuality>('standard');
   const [imageStyle, setImageStyle] = useState<ImageStyle>('vivid');
+
+  // 多模型配置状态
+  const [showAddChatModel, setShowAddChatModel] = useState(false);
+  const [showAddImageModel, setShowAddImageModel] = useState(false);
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  const [editingModelType, setEditingModelType] = useState<'chat' | 'image'>('chat');
+  const [newModel, setNewModel] = useState({
+    name: '',
+    provider: 'openai',
+    apiKey: '',
+    apiUrl: '',
+    model: '',
+  });
+  const [testingModelId, setTestingModelId] = useState<string | null>(null);
+
+  // 分离对话模型和生图模型
+  const chatModels = settings.aiModels.filter(m => m.type === 'chat' || !m.type);
+  const imageModels = settings.aiModels.filter(m => m.type === 'image');
+
+  // 测试单个模型
+  const handleTestModel = async (model: typeof settings.aiModels[0]) => {
+    setTestingModelId(model.id);
+    setAiTestResult(null);
+    
+    const result = await testAIConnection({
+      provider: model.provider,
+      apiKey: model.apiKey,
+      apiUrl: model.apiUrl,
+      model: model.model,
+    });
+    
+    setAiTestResult(result);
+    setTestingModelId(null);
+    
+    if (result.success) {
+      showToast(`连接成功 (${result.latency}ms)`, 'success');
+    } else {
+      showToast(result.error || '连接失败', 'error');
+    }
+  };
 
   // AI 测试函数
   const handleTestAI = async () => {
@@ -318,48 +363,54 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             <SettingSection title={t('settings.themeColor')}>
               <div className="p-4">
                 <div className="grid grid-cols-6 gap-4">
-                  {MORANDI_THEMES.map((theme) => (
-                    <button
-                      key={theme.id}
-                      onClick={() => settings.setThemeColor(theme.id)}
-                      className="group flex flex-col items-center gap-2"
-                      title={theme.name}
-                    >
-                      <div 
-                        className={`w-10 h-10 rounded-lg transition-all ${
-                          settings.themeColor === theme.id 
-                            ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
-                            : 'hover:opacity-80'
-                        }`}
-                        style={{ backgroundColor: `hsl(${theme.hue}, ${theme.saturation}%, 55%)` }}
+                  {MORANDI_THEMES.map((theme) => {
+                    const colorNameKey = `settings.color${theme.id.charAt(0).toUpperCase() + theme.id.slice(1).replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => settings.setThemeColor(theme.id)}
+                        className="group flex flex-col items-center gap-2"
+                        title={t(colorNameKey)}
                       >
-                        {settings.themeColor === theme.id && (
-                          <CheckIcon className="w-4 h-4 text-white m-auto mt-3" />
-                        )}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{theme.name}</span>
-                    </button>
-                  ))}
+                        <div 
+                          className={`w-10 h-10 rounded-lg transition-all ${
+                            settings.themeColor === theme.id 
+                              ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
+                              : 'hover:opacity-80'
+                          }`}
+                          style={{ backgroundColor: `hsl(${theme.hue}, ${theme.saturation}%, 55%)` }}
+                        >
+                          {settings.themeColor === theme.id && (
+                            <CheckIcon className="w-4 h-4 text-white m-auto mt-3" />
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{t(colorNameKey)}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </SettingSection>
 
             <SettingSection title={t('settings.fontSize')}>
               <div className="grid grid-cols-3 gap-3 p-4">
-                {FONT_SIZES.map((size) => (
-                  <button
-                    key={size.id}
-                    onClick={() => settings.setFontSize(size.id)}
-                    className={`py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
-                      settings.fontSize === size.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted/50 text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {size.name}
-                    <span className="block text-xs opacity-70 mt-0.5">{size.value}px</span>
-                  </button>
-                ))}
+                {FONT_SIZES.map((size) => {
+                  const sizeNameKey = `settings.font${size.id.charAt(0).toUpperCase() + size.id.slice(1)}`;
+                  return (
+                    <button
+                      key={size.id}
+                      onClick={() => settings.setFontSize(size.id)}
+                      className={`py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                        settings.fontSize === size.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/50 text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {t(sizeNameKey)}
+                      <span className="block text-xs opacity-70 mt-0.5">{size.value}px</span>
+                    </button>
+                  );
+                })}
               </div>
             </SettingSection>
           </div>
@@ -563,323 +614,371 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         );
 
       case 'ai':
-        const currentProvider = AI_PROVIDERS.find(p => p.id === settings.aiProvider);
         return (
           <div className="space-y-6">
-            <SettingSection title={t('settings.aiConfig')}>
-              <div className="p-4 space-y-4">
-                {/* 提供商选择 */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">{t('settings.provider')}</label>
-                  <select
-                    value={settings.aiProvider}
-                    onChange={(e) => {
-                      const provider = AI_PROVIDERS.find(p => p.id === e.target.value);
-                      settings.setAiProvider(e.target.value);
-                      if (provider?.defaultUrl) {
-                        settings.setAiApiUrl(provider.defaultUrl);
-                      }
-                      if (provider?.defaultModels[0]) {
-                        settings.setAiModel(provider.defaultModels[0]);
-                      }
-                    }}
-                    className="w-full h-10 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  >
-                    <optgroup label={t('settings.overseas')}>
-                      {AI_PROVIDERS.filter(p => ['openai', 'anthropic', 'google', 'xai', 'mistral'].includes(p.id)).map((provider) => (
-                        <option key={provider.id} value={provider.id}>{provider.name}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label={t('settings.domestic')}>
-                      {AI_PROVIDERS.filter(p => ['deepseek', 'moonshot', 'zhipu', 'qwen', 'ernie', 'spark', 'doubao', 'baichuan', 'minimax', 'stepfun', 'yi'].includes(p.id)).map((provider) => (
-                        <option key={provider.id} value={provider.id}>{provider.name}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label={t('settings.other')}>
-                      {AI_PROVIDERS.filter(p => ['azure', 'ollama', 'custom'].includes(p.id)).map((provider) => (
-                        <option key={provider.id} value={provider.id}>{provider.name}</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
-
-                {/* API Key */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">{t('settings.apiKey')}</label>
-                  <div className="relative">
-                    <KeyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="password"
-                      placeholder="输入你的 API Key"
-                      value={settings.aiApiKey}
-                      onChange={(e) => settings.setAiApiKey(e.target.value)}
-                      className="w-full h-10 pl-10 pr-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
-                </div>
-
-                {/* API URL */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">{t('settings.apiUrl')}</label>
-                  <input
-                    type="text"
-                    placeholder={currentProvider?.defaultUrl || t('settings.apiUrl')}
-                    value={settings.aiApiUrl}
-                    onChange={(e) => settings.setAiApiUrl(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-
-                {/* 模型选择 - 支持下拉 + 自定义输入 */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">{t('settings.model')}</label>
-                  <div className="flex gap-2">
-                    {currentProvider?.defaultModels.length ? (
-                      <select
-                        value={currentProvider.defaultModels.includes(settings.aiModel) ? settings.aiModel : ''}
-                        onChange={(e) => e.target.value && settings.setAiModel(e.target.value)}
-                        className="flex-1 h-10 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            {/* 对话模型列表 */}
+            <SettingSection title={t('settings.chatModels')}>
+              <div className="p-4 space-y-3">
+                {chatModels.length > 0 && (
+                  <div className="space-y-2">
+                    {chatModels.map((model) => (
+                      <div
+                        key={model.id}
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          model.isDefault ? 'bg-primary/10 border border-primary/30' : 'bg-muted/50'
+                        }`}
                       >
-                        <option value="">{t('settings.selectModel')}</option>
-                        {currentProvider.defaultModels.map((model) => (
-                          <option key={model} value={model}>{model}</option>
-                        ))}
-                      </select>
-                    ) : null}
-                    <input
-                      type="text"
-                      placeholder={t('settings.customModel')}
-                      value={settings.aiModel}
-                      onChange={(e) => settings.setAiModel(e.target.value)}
-                      className={`${currentProvider?.defaultModels.length ? 'flex-1' : 'w-full'} h-10 px-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30`}
-                    />
-                  </div>
-                </div>
-
-                {/* 操作按钮 */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleTestAI}
-                    disabled={aiTesting}
-                    className="flex-1 h-10 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {aiTesting ? (
-                      <Loader2Icon className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <PlayIcon className="w-4 h-4" />
-                    )}
-                    {t('settings.testConnection')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!settings.aiApiKey) {
-                        showToast(t('toast.configApiKey'), 'error');
-                        return;
-                      }
-                      showToast(t('settings.aiConfigSaved'), 'success');
-                    }}
-                    className="flex-1 h-10 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    {t('settings.saveConfig')}
-                  </button>
-                </div>
-
-                {/* 测试结果 */}
-                {aiTestResult && (
-                  <div className={`p-3 rounded-lg text-sm ${aiTestResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{aiTestResult.model}</span>
-                      <span className="text-xs opacity-70">({aiTestResult.latency}ms)</span>
-                    </div>
-                    {aiTestResult.success ? (
-                      <p className="text-xs opacity-80 line-clamp-3">{aiTestResult.response}</p>
-                    ) : (
-                      <p className="text-xs">{aiTestResult.error}</p>
-                    )}
+                        <div className="flex items-center gap-3">
+                          {model.isDefault && (
+                            <StarIcon className="w-4 h-4 text-primary fill-primary" />
+                          )}
+                          <div>
+                            <div className="font-medium text-sm">{model.name || model.model}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {model.name ? `${model.model} • ` : ''}{AI_PROVIDERS.find(p => p.id === model.provider)?.name || model.provider}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleTestModel(model)}
+                            disabled={testingModelId === model.id}
+                            className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50"
+                            title="测试连接"
+                          >
+                            {testingModelId === model.id ? (
+                              <Loader2Icon className="w-4 h-4 animate-spin text-muted-foreground" />
+                            ) : (
+                              <PlayIcon className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </button>
+                          {!model.isDefault && (
+                            <button
+                              onClick={() => settings.setDefaultAiModel(model.id)}
+                              className="p-1.5 rounded hover:bg-muted transition-colors"
+                              title="设为默认"
+                            >
+                              <StarIcon className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setEditingModelId(model.id);
+                              setEditingModelType('chat');
+                              setNewModel({
+                                name: model.name || '',
+                                provider: model.provider,
+                                apiKey: model.apiKey,
+                                apiUrl: model.apiUrl,
+                                model: model.model,
+                              });
+                              setShowAddChatModel(true);
+                            }}
+                            className="p-1.5 rounded hover:bg-muted transition-colors"
+                            title="编辑"
+                          >
+                            <EditIcon className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('确定要删除这个模型配置吗？')) {
+                                settings.deleteAiModel(model.id);
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            title="删除"
+                          >
+                            <TrashIcon className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
-            </SettingSection>
 
-            {/* 图像模型测试 */}
-            <SettingSection title={t('settings.testImage')}>
-              <div className="p-4 space-y-4">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">{t('settings.imagePrompt')}</label>
-                  <textarea
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    className="w-full min-h-[80px] px-3 py-2 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y"
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">{t('settings.imageSize')}</label>
-                    <select
-                      value={imageSize}
-                      onChange={(e) => setImageSize(e.target.value as ImageSize)}
-                      className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      <option value="256x256">256x256</option>
-                      <option value="512x512">512x512</option>
-                      <option value="1024x1024">1024x1024</option>
-                      <option value="1024x1792">1024x1792</option>
-                      <option value="1792x1024">1792x1024</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">{t('settings.imageQuality')}</label>
-                    <select
-                      value={imageQuality}
-                      onChange={(e) => setImageQuality(e.target.value as ImageQuality)}
-                      className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      <option value="standard">{t('settings.qualityStandard')}</option>
-                      <option value="hd">{t('settings.qualityHD')}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">{t('settings.imageStyle')}</label>
-                    <select
-                      value={imageStyle}
-                      onChange={(e) => setImageStyle(e.target.value as ImageStyle)}
-                      className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    >
-                      <option value="vivid">{t('settings.styleVivid')}</option>
-                      <option value="natural">{t('settings.styleNatural')}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleTestImage}
-                  disabled={imageTesting}
-                  className="w-full h-10 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {imageTesting ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <PlayIcon className="w-4 h-4" />
-                  )}
-                  {t('settings.testImage')}
-                </button>
-
-                {imageTestResult && (
-                  <div className={`mt-2 p-3 rounded-lg text-sm ${imageTestResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+                {/* 添加对话模型表单 */}
+                {showAddChatModel ? (
+                  <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs">
-                        <span className="font-medium mr-2">{imageTestResult.model}</span>
-                        <span className="opacity-70">{imageTestResult.latency}ms</span>
-                      </div>
+                      <span className="text-sm font-medium">
+                        {editingModelId && editingModelType === 'chat' ? t('settings.editChatModel') : t('settings.addChatModel')}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setShowAddChatModel(false);
+                          setEditingModelId(null);
+                          setNewModel({ name: '', provider: 'openai', apiKey: '', apiUrl: '', model: '' });
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {t('common.cancel')}
+                      </button>
                     </div>
-                    {imageTestResult.success ? (
-                      <div className="space-y-2">
-                        {(imageTestResult.imageUrl || imageTestResult.imageBase64) && (
-                          <div className="w-full flex justify-center">
-                            <img
-                              src={imageTestResult.imageUrl || `data:image/png;base64,${imageTestResult.imageBase64}`}
-                              alt="AI Generated"
-                              className="max-h-64 rounded-lg border border-border object-contain"
-                            />
-                          </div>
-                        )}
-                        {imageTestResult.revisedPrompt && (
-                          <p className="text-xs opacity-80">{imageTestResult.revisedPrompt}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs">{imageTestResult.error}</p>
-                    )}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.customNameOptional')}</label>
+                      <input
+                        type="text"
+                        placeholder={t('settings.customNamePlaceholder')}
+                        value={newModel.name}
+                        onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.providerName')}</label>
+                      <Select
+                        value={newModel.provider}
+                        onChange={(value) => {
+                          const provider = AI_PROVIDERS.find(p => p.id === value);
+                          setNewModel({
+                            ...newModel,
+                            provider: value,
+                            apiUrl: provider?.defaultUrl || '',
+                            model: provider?.defaultModels[0] || '',
+                          });
+                        }}
+                        options={AI_PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiKey')}</label>
+                      <input
+                        type="password"
+                        placeholder={t('settings.apiKeyPlaceholder')}
+                        value={newModel.apiKey}
+                        onChange={(e) => setNewModel({ ...newModel, apiKey: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiUrl')}</label>
+                      <input
+                        type="text"
+                        placeholder={t('settings.apiUrlPlaceholder')}
+                        value={newModel.apiUrl}
+                        onChange={(e) => setNewModel({ ...newModel, apiUrl: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.modelName')}</label>
+                      <input
+                        type="text"
+                        placeholder={t('settings.modelNamePlaceholder')}
+                        value={newModel.model}
+                        onChange={(e) => setNewModel({ ...newModel, model: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!newModel.apiKey || !newModel.apiUrl || !newModel.model) {
+                          showToast(t('settings.fillComplete'), 'error');
+                          return;
+                        }
+                        if (editingModelId && editingModelType === 'chat') {
+                          settings.updateAiModel(editingModelId, { ...newModel, type: 'chat' });
+                          showToast(t('settings.modelUpdated'), 'success');
+                        } else {
+                          settings.addAiModel({ ...newModel, type: 'chat' });
+                          showToast(t('settings.modelAdded'), 'success');
+                        }
+                        setShowAddChatModel(false);
+                        setEditingModelId(null);
+                        setNewModel({ name: '', provider: 'openai', apiKey: '', apiUrl: '', model: '' });
+                      }}
+                      className="w-full h-9 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      {editingModelId && editingModelType === 'chat' ? t('settings.saveChanges') : t('settings.addModel')}
+                    </button>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddChatModel(true)}
+                    className="w-full h-10 rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    {t('settings.addChatModel')}
+                  </button>
+                )}
+
+                {chatModels.length === 0 && !showAddChatModel && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    {t('settings.noModelsHint')}
+                  </p>
                 )}
               </div>
             </SettingSection>
 
-            {/* 模型对比测试 */}
-            <SettingSection title={t('settings.compareModels')}>
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">{t('settings.enableCompare')}</span>
-                  <ToggleSwitch checked={compareMode} onChange={setCompareMode} />
-                </div>
-                
-                {compareMode && (
-                  <>
-                    <div className="space-y-3 pt-2 border-t border-border">
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiKey')} 2</label>
-                        <input
-                          type="password"
-                          placeholder={t('settings.apiKey')}
-                          value={compareConfig.apiKey}
-                          onChange={(e) => setCompareConfig({ ...compareConfig, apiKey: e.target.value })}
-                          className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
-                        />
+            {/* 生图模型列表 */}
+            <SettingSection title={t('settings.imageModels')}>
+              <div className="p-4 space-y-3">
+                {imageModels.length > 0 && (
+                  <div className="space-y-2">
+                    {imageModels.map((model) => (
+                      <div
+                        key={model.id}
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          model.isDefault ? 'bg-primary/10 border border-primary/30' : 'bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {model.isDefault && (
+                            <StarIcon className="w-4 h-4 text-primary fill-primary" />
+                          )}
+                          <div>
+                            <div className="font-medium text-sm">{model.model}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {AI_PROVIDERS.find(p => p.id === model.provider)?.name || model.provider}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingModelId(model.id);
+                              setEditingModelType('image');
+                              setNewModel({
+                                name: model.name || '',
+                                provider: model.provider,
+                                apiKey: model.apiKey,
+                                apiUrl: model.apiUrl,
+                                model: model.model,
+                              });
+                              setShowAddImageModel(true);
+                            }}
+                            className="p-1.5 rounded hover:bg-muted transition-colors"
+                            title="编辑"
+                          >
+                            <EditIcon className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('确定要删除这个模型配置吗？')) {
+                                settings.deleteAiModel(model.id);
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            title="删除"
+                          >
+                            <TrashIcon className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiUrl')} 2</label>
-                        <input
-                          type="text"
-                          placeholder="https://api.example.com/v1"
-                          value={compareConfig.apiUrl}
-                          onChange={(e) => setCompareConfig({ ...compareConfig, apiUrl: e.target.value })}
-                          className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">{t('settings.model')} 2</label>
-                        <input
-                          type="text"
-                          placeholder={t('settings.model')}
-                          value={compareConfig.model}
-                          onChange={(e) => setCompareConfig({ ...compareConfig, model: e.target.value })}
-                          className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
-                        />
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={handleCompareTest}
-                      disabled={aiTesting || compareTesting}
-                      className="w-full h-10 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {(aiTesting || compareTesting) ? (
-                        <Loader2Icon className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <ZapIcon className="w-4 h-4" />
-                      )}
-                      {t('settings.runCompare')}
-                    </button>
+                    ))}
+                  </div>
+                )}
 
-                    {/* 对比结果 */}
-                    {(aiTestResult || compareResult) && (
-                      <div className="grid grid-cols-2 gap-3">
-                        {aiTestResult && (
-                          <div className={`p-3 rounded-lg text-sm ${aiTestResult.success ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                            <div className="font-medium text-xs mb-1">{aiTestResult.model}</div>
-                            <div className="text-xs opacity-70 mb-1">{aiTestResult.latency}ms</div>
-                            {aiTestResult.success ? (
-                              <p className="text-xs line-clamp-4">{aiTestResult.response}</p>
-                            ) : (
-                              <p className="text-xs text-red-600">{aiTestResult.error}</p>
-                            )}
-                          </div>
-                        )}
-                        {compareResult && (
-                          <div className={`p-3 rounded-lg text-sm ${compareResult.success ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                            <div className="font-medium text-xs mb-1">{compareResult.model}</div>
-                            <div className="text-xs opacity-70 mb-1">{compareResult.latency}ms</div>
-                            {compareResult.success ? (
-                              <p className="text-xs line-clamp-4">{compareResult.response}</p>
-                            ) : (
-                              <p className="text-xs text-red-600">{compareResult.error}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
+                {/* 添加生图模型表单 */}
+                {showAddImageModel ? (
+                  <div className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">
+                        {editingModelId && editingModelType === 'image' ? t('settings.editImageModel') : t('settings.addImageModel')}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setShowAddImageModel(false);
+                          setEditingModelId(null);
+                          setNewModel({ name: '', provider: 'openai', apiKey: '', apiUrl: '', model: '' });
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.customNameOptional')}</label>
+                      <input
+                        type="text"
+                        placeholder={t('settings.customNamePlaceholder')}
+                        value={newModel.name}
+                        onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.providerName')}</label>
+                      <Select
+                        value={newModel.provider}
+                        onChange={(value) => {
+                          const provider = AI_PROVIDERS.find(p => p.id === value);
+                          setNewModel({
+                            ...newModel,
+                            provider: value,
+                            apiUrl: provider?.defaultUrl || '',
+                            model: value === 'openai' ? 'dall-e-3' : '',
+                          });
+                        }}
+                        options={AI_PROVIDERS.filter(p => ['openai', 'azure', 'custom'].includes(p.id)).map((p) => ({ value: p.id, label: p.name }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiKey')}</label>
+                      <input
+                        type="password"
+                        placeholder={t('settings.apiKeyPlaceholder')}
+                        value={newModel.apiKey}
+                        onChange={(e) => setNewModel({ ...newModel, apiKey: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.apiUrl')}</label>
+                      <input
+                        type="text"
+                        placeholder={t('settings.apiUrlPlaceholder')}
+                        value={newModel.apiUrl}
+                        onChange={(e) => setNewModel({ ...newModel, apiUrl: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">{t('settings.modelName')}</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., dall-e-3, stable-diffusion"
+                        value={newModel.model}
+                        onChange={(e) => setNewModel({ ...newModel, model: e.target.value })}
+                        className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!newModel.apiKey || !newModel.apiUrl || !newModel.model) {
+                          showToast(t('settings.fillComplete'), 'error');
+                          return;
+                        }
+                        if (editingModelId && editingModelType === 'image') {
+                          settings.updateAiModel(editingModelId, { ...newModel, type: 'image' });
+                          showToast(t('settings.modelUpdated'), 'success');
+                        } else {
+                          settings.addAiModel({ ...newModel, type: 'image' });
+                          showToast(t('settings.modelAdded'), 'success');
+                        }
+                        setShowAddImageModel(false);
+                        setEditingModelId(null);
+                        setNewModel({ name: '', provider: 'openai', apiKey: '', apiUrl: '', model: '' });
+                      }}
+                      className="w-full h-9 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      {editingModelId && editingModelType === 'image' ? t('settings.saveChanges') : t('settings.addModel')}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddImageModel(true)}
+                    className="w-full h-10 rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground text-sm font-medium hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    {t('settings.addImageModel')}
+                  </button>
+                )}
+
+                {imageModels.length === 0 && !showAddImageModel && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    {t('settings.noModelsHint')}
+                  </p>
                 )}
               </div>
             </SettingSection>
@@ -896,6 +995,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         );
 
       case 'language':
+        const languageOptions: SelectOption[] = [
+          { value: 'zh', label: '简体中文' },
+          { value: 'en', label: 'English' },
+        ];
         return (
           <div className="space-y-6">
             <SettingSection title={t('settings.language')}>
@@ -903,16 +1006,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 label={t('settings.language')}
                 description={t('settings.selectLanguage')}
               >
-                <select 
-                  className="h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                <Select
                   value={settings.language}
-                  onChange={(e) => {
-                    settings.setLanguage(e.target.value as 'zh' | 'en');
-                  }}
-                >
-                  <option value="zh">简体中文</option>
-                  <option value="en">English</option>
-                </select>
+                  onChange={(value) => settings.setLanguage(value as 'zh' | 'en')}
+                  options={languageOptions}
+                  className="w-32"
+                />
               </SettingItem>
             </SettingSection>
             <div className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground flex items-center justify-between">
@@ -971,7 +1070,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 <span className="text-white text-xl font-bold">P</span>
               </div>
               <h2 className="text-lg font-semibold">PromptHub</h2>
-              <p className="text-sm text-muted-foreground mt-1">{t('settings.version')} 0.1.3</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('settings.version')} 0.1.4</p>
             </div>
 
             <SettingSection title={t('settings.projectInfo')}>
@@ -989,7 +1088,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   onChange={settings.setAutoCheckUpdate}
                 />
               </SettingItem>
-              <SettingItem label={t('settings.checkUpdate')} description={`${t('settings.version')}: 0.1.3`}>
+              <SettingItem label={t('settings.checkUpdate')} description={`${t('settings.version')}: 0.1.4`}>
                 <button
                   onClick={() => {
                     window.open('https://github.com/legeling/PromptHub/releases', '_blank');
@@ -1072,9 +1171,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 // 设置区块组件 - 扁平化设计
 function SettingSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="relative">
       <h3 className="text-sm font-medium text-muted-foreground mb-2">{title}</h3>
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="bg-card rounded-lg border border-border">
         {children}
       </div>
     </div>

@@ -1,9 +1,12 @@
 {
   "name": "prompthub",
-  "version": "0.1.3",
-  "description": "本地版的 Prompt 管理器，带版本控制",
+  "version": "0.1.4",
+  "description": "一款开源、本地优先的 AI Prompt 管理工具，帮助你高效管理、版本控制和复用",
   "main": "out/main/index.js",
-  "author": "PromptHub Team",
+  "author": {
+    "name": "legeling",
+    "url": "https://github.com/legeling"
+  },
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
   "repository": {

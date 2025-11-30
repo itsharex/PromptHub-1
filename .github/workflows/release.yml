@@ -69,6 +69,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
     
     steps:
       - name: Download all artifacts
@@ -83,5 +85,25 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
           generate_release_notes: true
+          body: |
+            ## 📦 安装说明
+            
+            ### macOS
+            - **Intel 芯片**: 下载 `PromptHub-x.x.x.dmg`
+            - **Apple Silicon (M1/M2/M3)**: 下载 `PromptHub-x.x.x-arm64.dmg`
+            
+            > ⚠️ **首次启动提示**: 如果提示"无法打开"，请在终端执行：
+            > ```bash
+            > sudo xattr -rd com.apple.quarantine /Applications/PromptHub.app
+            > ```
+            
+            ### Windows
+            - 下载 `PromptHub-x.x.x-setup.exe` 并运行安装
+            
+            ---
+            
+            ## 🔄 更新内容
+            
+            详细更新日志请查看 [CHANGELOG](https://github.com/legeling/PromptHub#-更新日志)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

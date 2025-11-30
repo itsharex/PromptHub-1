@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { changeLanguage } from '../i18n';
+import i18n, { changeLanguage } from '../i18n';
 
 // 主题色 - 莫兰迪色系 + 经典宝蓝
 export const MORANDI_THEMES = [
@@ -20,6 +20,21 @@ export const FONT_SIZES = [
 
 // 主题模式
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+// AI 模型类型
+export type AIModelType = 'chat' | 'image';
+
+// AI 模型配置类型
+export interface AIModelConfig {
+  id: string;
+  type: AIModelType;  // 模型类型：对话模型或生图模型
+  name?: string;      // 自定义名称（可选），用于显示
+  provider: string;   // 供应商 ID
+  apiKey: string;
+  apiUrl: string;
+  model: string;      // 模型名称，如 gpt-4o, dall-e-3
+  isDefault?: boolean;
+}
 
 interface SettingsState {
   // 显示设置
@@ -57,11 +72,14 @@ interface SettingsState {
   // 更新设置
   autoCheckUpdate: boolean;
   
-  // AI 模型配置
-  aiProvider: string; // 支持动态供应商
+  // AI 模型配置（兼容旧版单模型配置）
+  aiProvider: string;
   aiApiKey: string;
   aiApiUrl: string;
   aiModel: string;
+  
+  // 多模型配置（新版）
+  aiModels: AIModelConfig[];
   
   // Actions
   setThemeMode: (mode: ThemeMode) => void;
@@ -87,6 +105,11 @@ interface SettingsState {
   setAiApiKey: (key: string) => void;
   setAiApiUrl: (url: string) => void;
   setAiModel: (model: string) => void;
+  // 多模型管理
+  addAiModel: (config: Omit<AIModelConfig, 'id'>) => void;
+  updateAiModel: (id: string, config: Partial<AIModelConfig>) => void;
+  deleteAiModel: (id: string) => void;
+  setDefaultAiModel: (id: string) => void;
   applyTheme: () => void;
 }
 
@@ -107,7 +130,7 @@ export const useSettingsStore = create<SettingsState>()(
       enableNotifications: true,
       showCopyNotification: true,
       showSaveNotification: true,
-      language: 'zh',
+      language: (i18n.language === 'en' ? 'en' : 'zh') as 'zh' | 'en',
       dataPath: '~/Library/Application Support/PromptHub',
       webdavEnabled: false,
       webdavUrl: '',
@@ -119,6 +142,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiApiKey: '',
       aiApiUrl: '',
       aiModel: 'gpt-4o',
+      aiModels: [],
       
       setThemeMode: (mode) => {
         set({ themeMode: mode });
@@ -181,6 +205,76 @@ export const useSettingsStore = create<SettingsState>()(
       setAiApiKey: (key) => set({ aiApiKey: key }),
       setAiApiUrl: (url) => set({ aiApiUrl: url }),
       setAiModel: (model) => set({ aiModel: model }),
+      
+      // 多模型管理方法
+      addAiModel: (config) => {
+        const id = `model_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const models = get().aiModels;
+        const isFirst = models.length === 0;
+        set({
+          aiModels: [...models, { ...config, id, isDefault: isFirst }],
+        });
+        // 如果是第一个模型，同步到旧版配置
+        if (isFirst) {
+          set({
+            aiProvider: config.provider,
+            aiApiKey: config.apiKey,
+            aiApiUrl: config.apiUrl,
+            aiModel: config.model,
+          });
+        }
+      },
+      
+      updateAiModel: (id, config) => {
+        const models = get().aiModels.map((m) =>
+          m.id === id ? { ...m, ...config } : m
+        );
+        set({ aiModels: models });
+        // 如果更新的是默认模型，同步到旧版配置
+        const updated = models.find((m) => m.id === id);
+        if (updated?.isDefault) {
+          set({
+            aiProvider: updated.provider,
+            aiApiKey: updated.apiKey,
+            aiApiUrl: updated.apiUrl,
+            aiModel: updated.model,
+          });
+        }
+      },
+      
+      deleteAiModel: (id) => {
+        const models = get().aiModels;
+        const toDelete = models.find((m) => m.id === id);
+        const remaining = models.filter((m) => m.id !== id);
+        // 如果删除的是默认模型，设置第一个为默认
+        if (toDelete?.isDefault && remaining.length > 0) {
+          remaining[0].isDefault = true;
+          set({
+            aiProvider: remaining[0].provider,
+            aiApiKey: remaining[0].apiKey,
+            aiApiUrl: remaining[0].apiUrl,
+            aiModel: remaining[0].model,
+          });
+        }
+        set({ aiModels: remaining });
+      },
+      
+      setDefaultAiModel: (id) => {
+        const models = get().aiModels.map((m) => ({
+          ...m,
+          isDefault: m.id === id,
+        }));
+        set({ aiModels: models });
+        const defaultModel = models.find((m) => m.id === id);
+        if (defaultModel) {
+          set({
+            aiProvider: defaultModel.provider,
+            aiApiKey: defaultModel.apiKey,
+            aiApiUrl: defaultModel.apiUrl,
+            aiModel: defaultModel.model,
+          });
+        }
+      },
       
       applyTheme: () => {
         const state = get();

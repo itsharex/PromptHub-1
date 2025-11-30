@@ -8,6 +8,7 @@ import { initDatabase, seedDatabase } from './services/database';
 import { downloadFromWebDAV } from './services/webdav';
 import { useToast } from './components/ui/Toast';
 import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core';
+import i18n from './i18n';
 
 // 页面类型
 type PageType = 'home' | 'settings';
@@ -46,6 +47,13 @@ function App() {
   useEffect(() => {
     // 应用保存的主题设置
     applyTheme();
+    
+    // 同步语言设置：确保 settings store 与 i18n 实际语言一致
+    const currentLang = i18n.language === 'en' ? 'en' : 'zh';
+    const storedLang = useSettingsStore.getState().language;
+    if (storedLang !== currentLang) {
+      useSettingsStore.getState().setLanguage(currentLang as 'zh' | 'en');
+    }
     
     // 初始化数据库，然后加载数据
     const init = async () => {

@@ -46,27 +46,29 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
 
   return (
     <>
-      <header className="h-12 bg-card border-b border-border flex items-center px-4 shrink-0">
-        {/* 搜索框 - 居中 */}
+      <header className="h-12 bg-card border-b border-border flex items-center px-4 shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+        {/* 搜索框 - 居中，整个区域可拖动，只有 input 不可拖动 */}
         <div className="flex-1 flex justify-center">
           <div className="w-full max-w-lg relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               placeholder={t('header.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-4 rounded-lg bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             />
           </div>
         </div>
 
-        {/* 右侧操作按钮 */}
+        {/* 右侧操作按钮 - 只有按钮本身不可拖动 */}
         <div className="flex items-center gap-1 ml-4">
           {/* 新建按钮 */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             <PlusIcon className="w-4 h-4" />
             <span>{t('header.new')}</span>
@@ -76,6 +78,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             {isDarkMode ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
           </button>
@@ -84,6 +87,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
           <button
             onClick={onOpenSettings}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             <SettingsIcon className="w-4 h-4" />
           </button>

@@ -3,6 +3,7 @@ import { Modal, Button, Input, Textarea } from '../ui';
 import { HashIcon, XIcon, FolderIcon } from 'lucide-react';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useFolderStore } from '../../stores/folder.store';
+import { useTranslation } from 'react-i18next';
 import type { Prompt } from '../../../shared/types';
 
 interface EditPromptModalProps {
@@ -12,6 +13,7 @@ interface EditPromptModalProps {
 }
 
 export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProps) {
+  const { t } = useTranslation();
   const updatePrompt = usePromptStore((state) => state.updatePrompt);
   const prompts = usePromptStore((state) => state.prompts);
   const folders = useFolderStore((state) => state.folders);
@@ -77,20 +79,20 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="编辑 Prompt" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('prompt.editPrompt')} size="lg">
       <div className="space-y-5">
         {/* 标题 */}
         <Input
-          label="标题"
-          placeholder="给你的 Prompt 起个名字"
+          label={t('prompt.titleLabel')}
+          placeholder={t('prompt.titlePlaceholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
 
         {/* 描述 */}
         <Input
-          label="描述（可选）"
-          placeholder="简单描述这个 Prompt 的用途"
+          label={t('prompt.descriptionOptional')}
+          placeholder={t('prompt.descriptionPlaceholder')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -98,7 +100,7 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
         {/* 文件夹 */}
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-foreground">
-            文件夹（可选）
+            {t('prompt.folderOptional')}
           </label>
           <div className="relative">
             <FolderIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -107,7 +109,7 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
               onChange={(e) => setFolderId(e.target.value || undefined)}
               className="w-full h-10 pl-10 pr-4 rounded-xl bg-muted/50 border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-background transition-all duration-200 appearance-none cursor-pointer"
             >
-              <option value="">不选择文件夹</option>
+              <option value="">{t('prompt.noFolder')}</option>
               {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.icon || '📁'} {folder.name}
@@ -120,7 +122,7 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
         {/* 标签 */}
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-foreground">
-            标签（可选）
+            {t('prompt.tagsOptional')}
           </label>
           {/* 已选标签 */}
           <div className="flex flex-wrap gap-2 mb-2">
@@ -143,7 +145,7 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
           {/* 已有标签选择 */}
           {existingTags.length > 0 && (
             <div className="mb-2">
-              <div className="text-xs text-muted-foreground mb-1.5">选择已有标签：</div>
+              <div className="text-xs text-muted-foreground mb-1.5">{t('prompt.selectExistingTags')}</div>
               <div className="flex flex-wrap gap-1.5">
                 {existingTags.filter(t => !tags.includes(t)).map((tag) => (
                   <button
@@ -163,30 +165,30 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="输入新标签后按回车"
+              placeholder={t('prompt.enterTagHint')}
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={handleTagKeyDown}
               className="flex-1 h-10 px-4 rounded-xl bg-muted/50 border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-background transition-all duration-200"
             />
             <Button variant="secondary" size="md" onClick={handleAddTag}>
-              添加
+              {t('prompt.addTag')}
             </Button>
           </div>
         </div>
 
         {/* System Prompt */}
         <Textarea
-          label="System Prompt（可选）"
-          placeholder="设置 AI 的角色和行为..."
+          label={t('prompt.systemPromptOptional')}
+          placeholder={t('prompt.systemPromptPlaceholder')}
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
         />
 
         {/* User Prompt */}
         <Textarea
-          label="User Prompt"
-          placeholder="输入你的 Prompt 内容..."
+          label={t('prompt.userPromptLabel')}
+          placeholder={t('prompt.userPromptPlaceholder')}
           value={userPrompt}
           onChange={(e) => setUserPrompt(e.target.value)}
           className="min-h-[200px]"
@@ -195,14 +197,14 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
         {/* 操作按钮 */}
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button
             variant="primary"
             onClick={handleSubmit}
             disabled={!title.trim() || !userPrompt.trim()}
           >
-            保存
+            {t('prompt.save')}
           </Button>
         </div>
       </div>
