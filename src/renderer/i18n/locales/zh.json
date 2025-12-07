@@ -204,7 +204,7 @@
     "webdavUsername": "用户名",
     "webdavPassword": "密码",
     "webdavAutoSync": "启动时自动同步",
-    "webdavAutoSyncDesc": "应用启动时自动从 WebDAV 下载数据",
+    "webdavAutoSyncDesc": "应用启动时自动双向同步数据（包含图片），本地更新则上传，远程更新则下载",
     "testConnection": "测试连接",
     "upload": "上传",
     "download": "下载",

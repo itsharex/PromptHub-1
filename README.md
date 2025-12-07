@@ -435,5 +435,4 @@ PromptHub/
     <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50" />
   </a>
   
-  <p>Made with ❤️ by <a href="https://github.com/legeling">legeling</a></p>
 </div>

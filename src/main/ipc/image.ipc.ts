@@ -108,4 +108,70 @@ export function registerImageIPC() {
             return null;
         }
     });
+
+    // 获取所有本地图片文件名列表
+    ipcMain.handle('image:list', async () => {
+        const userDataPath = app.getPath('userData');
+        const imagesDir = path.join(userDataPath, 'images');
+
+        if (!fs.existsSync(imagesDir)) {
+            return [];
+        }
+
+        try {
+            const files = fs.readdirSync(imagesDir);
+            return files.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+        } catch (error) {
+            console.error('Failed to list images:', error);
+            return [];
+        }
+    });
+
+    // 读取图片为 Base64
+    ipcMain.handle('image:readBase64', async (_event, fileName: string) => {
+        const userDataPath = app.getPath('userData');
+        const imagePath = path.join(userDataPath, 'images', fileName);
+
+        try {
+            if (!fs.existsSync(imagePath)) {
+                return null;
+            }
+            const buffer = fs.readFileSync(imagePath);
+            return buffer.toString('base64');
+        } catch (error) {
+            console.error(`Failed to read image ${fileName}:`, error);
+            return null;
+        }
+    });
+
+    // 从 Base64 保存图片（用于同步下载）
+    ipcMain.handle('image:saveBase64', async (_event, fileName: string, base64Data: string) => {
+        const userDataPath = app.getPath('userData');
+        const imagesDir = path.join(userDataPath, 'images');
+
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir, { recursive: true });
+        }
+
+        try {
+            const destPath = path.join(imagesDir, fileName);
+            // 如果文件已存在，跳过
+            if (fs.existsSync(destPath)) {
+                return true;
+            }
+            const buffer = Buffer.from(base64Data, 'base64');
+            fs.writeFileSync(destPath, buffer);
+            return true;
+        } catch (error) {
+            console.error(`Failed to save image ${fileName}:`, error);
+            return false;
+        }
+    });
+
+    // 检查图片是否存在
+    ipcMain.handle('image:exists', async (_event, fileName: string) => {
+        const userDataPath = app.getPath('userData');
+        const imagePath = path.join(userDataPath, 'images', fileName);
+        return fs.existsSync(imagePath);
+    });
 }

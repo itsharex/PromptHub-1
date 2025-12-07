@@ -1,5 +1,5 @@
 /**
- * WebDAV 同步服务
+ * WebDAV 同步服务 - 支持图片同步和双向同步
  */
 
 import { getAllPrompts, getAllFolders, restoreFromBackup } from './database';
@@ -14,10 +14,26 @@ interface SyncResult {
   success: boolean;
   message: string;
   timestamp?: string;
+  details?: {
+    promptsUploaded?: number;
+    promptsDownloaded?: number;
+    imagesUploaded?: number;
+    imagesDownloaded?: number;
+  };
+}
+
+interface BackupData {
+  version: string;
+  exportedAt: string;
+  prompts: any[];
+  folders: any[];
+  versions?: any[];
+  images?: { [fileName: string]: string }; // fileName -> base64
 }
 
 // WebDAV 文件路径
 const BACKUP_FILENAME = 'prompthub-backup.json';
+const IMAGES_DIR = 'prompthub-images';
 
 /**
  * 测试 WebDAV 连接
@@ -45,7 +61,38 @@ export async function testConnection(config: WebDAVConfig): Promise<SyncResult> 
 }
 
 /**
- * 上传数据到 WebDAV
+ * 收集所有需要同步的图片
+ */
+async function collectImages(prompts: any[]): Promise<{ [fileName: string]: string }> {
+  const images: { [fileName: string]: string } = {};
+  const imageFileNames = new Set<string>();
+
+  // 收集所有 prompt 中引用的图片
+  for (const prompt of prompts) {
+    if (prompt.images && Array.isArray(prompt.images)) {
+      for (const img of prompt.images) {
+        imageFileNames.add(img);
+      }
+    }
+  }
+
+  // 读取图片为 Base64
+  for (const fileName of imageFileNames) {
+    try {
+      const base64 = await window.electron?.readImageBase64?.(fileName);
+      if (base64) {
+        images[fileName] = base64;
+      }
+    } catch (error) {
+      console.warn(`Failed to read image ${fileName}:`, error);
+    }
+  }
+
+  return images;
+}
+
+/**
+ * 上传数据到 WebDAV（包含图片）
  */
 export async function uploadToWebDAV(config: WebDAVConfig): Promise<SyncResult> {
   try {
@@ -53,11 +100,16 @@ export async function uploadToWebDAV(config: WebDAVConfig): Promise<SyncResult> 
     const prompts = await getAllPrompts();
     const folders = await getAllFolders();
     
-    const backupData = {
-      version: '1.0',
+    // 收集图片
+    const images = await collectImages(prompts);
+    const imagesCount = Object.keys(images).length;
+    
+    const backupData: BackupData = {
+      version: '2.0',
       exportedAt: new Date().toISOString(),
       prompts,
       folders,
+      images,
     };
 
     const fileUrl = `${config.url.replace(/\/$/, '')}/${BACKUP_FILENAME}`;
@@ -74,8 +126,12 @@ export async function uploadToWebDAV(config: WebDAVConfig): Promise<SyncResult> 
     if (response.ok || response.status === 201 || response.status === 204) {
       return { 
         success: true, 
-        message: '上传成功',
+        message: `上传成功 (${prompts.length} 条 Prompt, ${imagesCount} 张图片)`,
         timestamp: new Date().toISOString(),
+        details: {
+          promptsUploaded: prompts.length,
+          imagesUploaded: imagesCount,
+        },
       };
     } else {
       return { success: false, message: `上传失败: ${response.status} ${response.statusText}` };
@@ -86,7 +142,27 @@ export async function uploadToWebDAV(config: WebDAVConfig): Promise<SyncResult> 
 }
 
 /**
- * 从 WebDAV 下载数据
+ * 恢复图片到本地
+ */
+async function restoreImages(images: { [fileName: string]: string }): Promise<number> {
+  let restoredCount = 0;
+  
+  for (const [fileName, base64] of Object.entries(images)) {
+    try {
+      const success = await window.electron?.saveImageBase64?.(fileName, base64);
+      if (success) {
+        restoredCount++;
+      }
+    } catch (error) {
+      console.warn(`Failed to restore image ${fileName}:`, error);
+    }
+  }
+  
+  return restoredCount;
+}
+
+/**
+ * 从 WebDAV 下载数据（包含图片）
  */
 export async function downloadFromWebDAV(config: WebDAVConfig): Promise<SyncResult> {
   try {
@@ -107,15 +183,31 @@ export async function downloadFromWebDAV(config: WebDAVConfig): Promise<SyncResu
       return { success: false, message: `下载失败: ${response.status} ${response.statusText}` };
     }
 
-    const data = await response.json();
+    const data: BackupData = await response.json();
     
-    // 恢复数据
-    await restoreFromBackup(data);
+    // 恢复数据 - 转换为 DatabaseBackup 格式
+    await restoreFromBackup({
+      version: typeof data.version === 'string' ? parseInt(data.version) || 1 : data.version as number,
+      exportedAt: data.exportedAt,
+      prompts: data.prompts,
+      folders: data.folders,
+      versions: data.versions || [],
+    });
+    
+    // 恢复图片
+    let imagesRestored = 0;
+    if (data.images && Object.keys(data.images).length > 0) {
+      imagesRestored = await restoreImages(data.images);
+    }
     
     return { 
       success: true, 
-      message: '下载并恢复成功',
+      message: `下载成功 (${data.prompts?.length || 0} 条 Prompt, ${imagesRestored} 张图片)`,
       timestamp: data.exportedAt,
+      details: {
+        promptsDownloaded: data.prompts?.length || 0,
+        imagesDownloaded: imagesRestored,
+      },
     };
   } catch (error) {
     return { success: false, message: `下载失败: ${error instanceof Error ? error.message : '未知错误'}` };
@@ -123,14 +215,18 @@ export async function downloadFromWebDAV(config: WebDAVConfig): Promise<SyncResu
 }
 
 /**
- * 获取远程备份信息
+ * 获取远程备份信息（包含详细数据）
  */
-export async function getRemoteBackupInfo(config: WebDAVConfig): Promise<{ exists: boolean; timestamp?: string }> {
+export async function getRemoteBackupInfo(config: WebDAVConfig): Promise<{ 
+  exists: boolean; 
+  timestamp?: string;
+  data?: BackupData;
+}> {
   try {
     const fileUrl = `${config.url.replace(/\/$/, '')}/${BACKUP_FILENAME}`;
     
     const response = await fetch(fileUrl, {
-      method: 'HEAD',
+      method: 'GET',
       headers: {
         'Authorization': 'Basic ' + btoa(`${config.username}:${config.password}`),
       },
@@ -141,10 +237,11 @@ export async function getRemoteBackupInfo(config: WebDAVConfig): Promise<{ exist
     }
 
     if (response.ok) {
-      const lastModified = response.headers.get('Last-Modified');
+      const data: BackupData = await response.json();
       return { 
         exists: true, 
-        timestamp: lastModified ? new Date(lastModified).toISOString() : undefined,
+        timestamp: data.exportedAt,
+        data,
       };
     }
 
@@ -152,4 +249,73 @@ export async function getRemoteBackupInfo(config: WebDAVConfig): Promise<{ exist
   } catch {
     return { exists: false };
   }
+}
+
+/**
+ * 双向智能同步
+ * 比较本地和远程数据的时间戳，自动决定同步方向
+ */
+export async function bidirectionalSync(config: WebDAVConfig): Promise<SyncResult> {
+  try {
+    // 获取本地数据
+    const localPrompts = await getAllPrompts();
+    const localFolders = await getAllFolders();
+    
+    // 获取本地最新更新时间
+    let localLatestTime = new Date(0);
+    for (const prompt of localPrompts) {
+      const updatedAt = new Date(prompt.updatedAt);
+      if (updatedAt > localLatestTime) {
+        localLatestTime = updatedAt;
+      }
+    }
+    for (const folder of localFolders) {
+      const updatedAt = new Date(folder.updatedAt);
+      if (updatedAt > localLatestTime) {
+        localLatestTime = updatedAt;
+      }
+    }
+    
+    // 获取远程备份信息
+    const remoteInfo = await getRemoteBackupInfo(config);
+    
+    // 如果远程没有数据，上传本地数据
+    if (!remoteInfo.exists || !remoteInfo.data) {
+      console.log('🔄 Remote is empty, uploading local data...');
+      return await uploadToWebDAV(config);
+    }
+    
+    const remoteTime = new Date(remoteInfo.timestamp || 0);
+    
+    // 比较时间戳决定同步方向
+    if (remoteTime > localLatestTime) {
+      // 远程数据更新，下载
+      console.log('🔄 Remote is newer, downloading...');
+      return await downloadFromWebDAV(config);
+    } else if (localLatestTime > remoteTime) {
+      // 本地数据更新，上传
+      console.log('🔄 Local is newer, uploading...');
+      return await uploadToWebDAV(config);
+    } else {
+      // 数据一致，无需同步
+      return {
+        success: true,
+        message: '数据已是最新，无需同步',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      message: `同步失败: ${error instanceof Error ? error.message : '未知错误'}` 
+    };
+  }
+}
+
+/**
+ * 自动同步（用于启动时和定时同步）
+ * 默认采用双向同步策略
+ */
+export async function autoSync(config: WebDAVConfig): Promise<SyncResult> {
+  return await bidirectionalSync(config);
 }

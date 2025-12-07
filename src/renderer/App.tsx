@@ -5,7 +5,7 @@ import { usePromptStore } from './stores/prompt.store';
 import { useFolderStore } from './stores/folder.store';
 import { useSettingsStore } from './stores/settings.store';
 import { initDatabase, seedDatabase } from './services/database';
-import { downloadFromWebDAV } from './services/webdav';
+import { autoSync } from './services/webdav';
 import { useToast } from './components/ui/Toast';
 import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core';
 import i18n from './i18n';
@@ -61,19 +61,19 @@ function App() {
         await initDatabase();
         await seedDatabase();
         
-        // 检查是否需要自动同步
+        // 检查是否需要自动同步（双向同步）
         const settings = useSettingsStore.getState();
         if (settings.webdavEnabled && settings.webdavAutoSync && 
             settings.webdavUrl && settings.webdavUsername && settings.webdavPassword) {
-          console.log('🔄 Auto syncing from WebDAV...');
+          console.log('🔄 Auto syncing with WebDAV (bidirectional)...');
           try {
-            const result = await downloadFromWebDAV({
+            const result = await autoSync({
               url: settings.webdavUrl,
               username: settings.webdavUsername,
               password: settings.webdavPassword,
             });
             if (result.success) {
-              console.log('✅ Auto sync completed');
+              console.log('✅ Auto sync completed:', result.message);
             } else {
               console.log('⚠️ Auto sync failed:', result.message);
             }

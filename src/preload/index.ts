@@ -118,6 +118,11 @@ contextBridge.exposeInMainWorld('electron', {
   saveImageBuffer: (buffer: ArrayBuffer) => ipcRenderer.invoke('image:save-buffer', Buffer.from(buffer)),
   downloadImage: (url: string) => ipcRenderer.invoke('image:download', url),
   openImage: (fileName: string) => ipcRenderer.invoke('image:open', fileName),
+  // 图片同步相关
+  listImages: () => ipcRenderer.invoke('image:list'),
+  readImageBase64: (fileName: string) => ipcRenderer.invoke('image:readBase64', fileName),
+  saveImageBase64: (fileName: string, base64: string) => ipcRenderer.invoke('image:saveBase64', fileName, base64),
+  imageExists: (fileName: string) => ipcRenderer.invoke('image:exists', fileName),
 });
 
 // 类型声明
@@ -148,6 +153,11 @@ declare global {
       saveImageBuffer?: (buffer: ArrayBuffer) => Promise<string | null>;
       downloadImage?: (url: string) => Promise<string | null>;
       openImage?: (fileName: string) => Promise<boolean>;
+      // 图片同步相关
+      listImages?: () => Promise<string[]>;
+      readImageBase64?: (fileName: string) => Promise<string | null>;
+      saveImageBase64?: (fileName: string, base64: string) => Promise<boolean>;
+      imageExists?: (fileName: string) => Promise<boolean>;
     };
   }
 }

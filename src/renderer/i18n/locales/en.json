@@ -201,7 +201,7 @@
     "webdavUsername": "Username",
     "webdavPassword": "Password",
     "webdavAutoSync": "Auto Sync on Startup",
-    "webdavAutoSyncDesc": "Automatically download data from WebDAV on startup",
+    "webdavAutoSyncDesc": "Bidirectional sync on startup (including images): upload if local is newer, download if remote is newer",
     "testConnection": "Test Connection",
     "upload": "Upload",
     "download": "Download",
