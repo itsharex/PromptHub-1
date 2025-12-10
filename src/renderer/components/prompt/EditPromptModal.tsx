@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Input, Textarea } from '../ui';
 import { Select } from '../ui/Select';
-import { HashIcon, XIcon, ImageIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { HashIcon, XIcon, ImageIcon, Maximize2Icon, Minimize2Icon, PlusIcon, GlobeIcon } from 'lucide-react';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useFolderStore } from '../../stores/folder.store';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,9 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [systemPromptEn, setSystemPromptEn] = useState('');
   const [userPrompt, setUserPrompt] = useState('');
+  const [userPromptEn, setUserPromptEn] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
@@ -36,6 +38,7 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [userTab, setUserTab] = useState<'edit' | 'preview'>('edit');
   const [systemTab, setSystemTab] = useState<'edit' | 'preview'>('edit');
+  const [showEnglishVersion, setShowEnglishVersion] = useState(false);
 
   const sanitizeSchema: any = useMemo(() => {
     const schema = { ...defaultSchema, attributes: { ...defaultSchema.attributes } };
@@ -81,10 +84,14 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
       setTitle(prompt.title);
       setDescription(prompt.description || '');
       setSystemPrompt(prompt.systemPrompt || '');
+      setSystemPromptEn(prompt.systemPromptEn || '');
       setUserPrompt(prompt.userPrompt);
+      setUserPromptEn(prompt.userPromptEn || '');
       setTags(prompt.tags || []);
       setImages(prompt.images || []);
       setFolderId(prompt.folderId);
+      // 如果已有英文版本，自动展开
+      setShowEnglishVersion(!!(prompt.systemPromptEn || prompt.userPromptEn));
     }
   }, [prompt]);
 
@@ -96,7 +103,9 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
         title: title.trim(),
         description: description.trim() || undefined,
         systemPrompt: systemPrompt.trim() || undefined,
+        systemPromptEn: systemPromptEn.trim() || undefined,
         userPrompt: userPrompt.trim(),
+        userPromptEn: userPromptEn.trim() || undefined,
         tags,
         images,
         folderId,
@@ -348,6 +357,36 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
           </div>
         </div>
 
+        {/* 英文版本切换 */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-accent/30 border border-border">
+          <div className="flex items-center gap-2">
+            <GlobeIcon className="w-4 h-4 text-primary" />
+            <div>
+              <div className="text-sm font-medium">{t('prompt.bilingualHint')}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowEnglishVersion(!showEnglishVersion)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              showEnglishVersion
+                ? 'bg-primary text-white'
+                : 'bg-muted hover:bg-accent text-foreground'
+            }`}
+          >
+            {showEnglishVersion ? (
+              <>
+                <XIcon className="w-3.5 h-3.5" />
+                {t('prompt.removeEnglishVersion')}
+              </>
+            ) : (
+              <>
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('prompt.addEnglishVersion')}
+              </>
+            )}
+          </button>
+        </div>
+
         {/* System Prompt */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -399,6 +438,22 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
           )}
         </div>
 
+        {/* System Prompt English */}
+        {showEnglishVersion && (
+          <div className="space-y-2 pl-4 border-l-2 border-primary/30">
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">EN</span>
+              {t('prompt.systemPromptEn')}
+            </label>
+            <Textarea
+              placeholder="Enter English System Prompt..."
+              value={systemPromptEn}
+              onChange={(e) => setSystemPromptEn(e.target.value)}
+              className="min-h-[150px]"
+            />
+          </div>
+        )}
+
         {/* User Prompt */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -449,6 +504,22 @@ export function EditPromptModal({ isOpen, onClose, prompt }: EditPromptModalProp
             </div>
           )}
         </div>
+
+        {/* User Prompt English */}
+        {showEnglishVersion && (
+          <div className="space-y-2 pl-4 border-l-2 border-primary/30">
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">EN</span>
+              {t('prompt.userPromptEn')}
+            </label>
+            <Textarea
+              placeholder="Enter English User Prompt..."
+              value={userPromptEn}
+              onChange={(e) => setUserPromptEn(e.target.value)}
+              className="min-h-[200px]"
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );

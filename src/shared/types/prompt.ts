@@ -7,7 +7,9 @@ export interface Prompt {
   title: string;
   description?: string;
   systemPrompt?: string;
+  systemPromptEn?: string;  // 英文版 System Prompt
   userPrompt: string;
+  userPromptEn?: string;    // 英文版 User Prompt
   variables: Variable[];
   tags: string[];
   folderId?: string;
@@ -49,7 +51,9 @@ export interface CreatePromptDTO {
   title: string;
   description?: string;
   systemPrompt?: string;
+  systemPromptEn?: string;
   userPrompt: string;
+  userPromptEn?: string;
   variables?: Variable[];
   tags?: string[];
   folderId?: string;
@@ -60,7 +64,9 @@ export interface UpdatePromptDTO {
   title?: string;
   description?: string;
   systemPrompt?: string;
+  systemPromptEn?: string;
   userPrompt?: string;
+  userPromptEn?: string;
   variables?: Variable[];
   tags?: string[];
   folderId?: string;

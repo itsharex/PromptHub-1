@@ -24,7 +24,9 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     title: string;
     description?: string;
     systemPrompt?: string;
+    systemPromptEn?: string;
     userPrompt: string;
+    userPromptEn?: string;
     tags: string[];
     images?: string[];
     folderId?: string;
@@ -34,7 +36,9 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         title: data.title,
         description: data.description,
         systemPrompt: data.systemPrompt,
+        systemPromptEn: data.systemPromptEn,
         userPrompt: data.userPrompt,
+        userPromptEn: data.userPromptEn,
         tags: data.tags,
         variables: [],
         images: data.images,

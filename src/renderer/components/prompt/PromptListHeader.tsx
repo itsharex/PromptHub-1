@@ -127,13 +127,21 @@ export function PromptListHeader({ count }: PromptListHeaderProps) {
           </div>
         )}
 
-        {/* 视图切换按钮 */}
-        <div className="flex items-center rounded-md border border-border overflow-hidden">
+        {/* 视图切换按钮 - 带滑动指示器 */}
+        <div className="relative flex items-center rounded-md border border-border overflow-hidden bg-muted/30">
+          {/* 滑动指示器 */}
+          <div
+            className="absolute h-full bg-primary rounded-[3px] transition-all duration-200 ease-out"
+            style={{
+              width: 'calc(100% / 3)',
+              left: viewMode === 'card' ? '0%' : viewMode === 'gallery' ? 'calc(100% / 3)' : 'calc(200% / 3)',
+            }}
+          />
           <button
             onClick={() => setViewMode('card')}
-            className={`p-1.5 transition-colors ${viewMode === 'card'
-              ? 'bg-primary text-white'
-              : 'bg-transparent text-muted-foreground hover:bg-accent'
+            className={`relative z-10 p-1.5 transition-colors duration-200 ${viewMode === 'card'
+              ? 'text-white'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
             title={t('prompt.viewCard')}
           >
@@ -141,9 +149,9 @@ export function PromptListHeader({ count }: PromptListHeaderProps) {
           </button>
           <button
             onClick={() => setViewMode('gallery')}
-            className={`p-1.5 transition-colors ${viewMode === 'gallery'
-              ? 'bg-primary text-white'
-              : 'bg-transparent text-muted-foreground hover:bg-accent'
+            className={`relative z-10 p-1.5 transition-colors duration-200 ${viewMode === 'gallery'
+              ? 'text-white'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
             title={t('prompt.viewGallery', '图片视图')}
           >
@@ -151,9 +159,9 @@ export function PromptListHeader({ count }: PromptListHeaderProps) {
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-1.5 transition-colors ${viewMode === 'list'
-              ? 'bg-primary text-white'
-              : 'bg-transparent text-muted-foreground hover:bg-accent'
+            className={`relative z-10 p-1.5 transition-colors duration-200 ${viewMode === 'list'
+              ? 'text-white'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
             title={t('prompt.viewList')}
           >

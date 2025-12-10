@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal, Button, Input, Textarea } from '../ui';
 import { Select } from '../ui/Select';
-import { HashIcon, XIcon, FolderIcon, ImageIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { HashIcon, XIcon, FolderIcon, ImageIcon, Maximize2Icon, Minimize2Icon, PlusIcon, GlobeIcon } from 'lucide-react';
 import { useFolderStore } from '../../stores/folder.store';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,9 @@ interface CreatePromptModalProps {
     title: string;
     description?: string;
     systemPrompt?: string;
+    systemPromptEn?: string;
     userPrompt: string;
+    userPromptEn?: string;
     tags: string[];
     images?: string[];
     folderId?: string;
@@ -26,12 +28,15 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [systemPromptEn, setSystemPromptEn] = useState('');
   const [userPrompt, setUserPrompt] = useState('');
+  const [userPromptEn, setUserPromptEn] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [folderId, setFolderId] = useState<string>('');
   const [images, setImages] = useState<string[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showEnglishVersion, setShowEnglishVersion] = useState(false);
   const folders = useFolderStore((state) => state.folders);
   const prompts = usePromptStore((state) => state.prompts);
 
@@ -52,7 +57,9 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
       title: title.trim(),
       description: description.trim() || undefined,
       systemPrompt: systemPrompt.trim() || undefined,
+      systemPromptEn: systemPromptEn.trim() || undefined,
       userPrompt: userPrompt.trim(),
+      userPromptEn: userPromptEn.trim() || undefined,
       tags,
       images,
       folderId: folderId || undefined,
@@ -62,10 +69,13 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
     setTitle('');
     setDescription('');
     setSystemPrompt('');
+    setSystemPromptEn('');
     setUserPrompt('');
+    setUserPromptEn('');
     setTags([]);
     setImages([]);
     setFolderId('');
+    setShowEnglishVersion(false);
     onClose();
   };
 
@@ -257,6 +267,34 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
           </div>
         </div>
 
+        {/* 英文版本切换 */}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-accent/30 border border-border">
+          <div className="flex items-center gap-2">
+            <GlobeIcon className="w-4 h-4 text-primary" />
+            <div className="text-sm font-medium">{t('prompt.bilingualHint')}</div>
+          </div>
+          <button
+            onClick={() => setShowEnglishVersion(!showEnglishVersion)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              showEnglishVersion
+                ? 'bg-primary text-white'
+                : 'bg-muted hover:bg-accent text-foreground'
+            }`}
+          >
+            {showEnglishVersion ? (
+              <>
+                <XIcon className="w-3.5 h-3.5" />
+                {t('prompt.removeEnglishVersion')}
+              </>
+            ) : (
+              <>
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('prompt.addEnglishVersion')}
+              </>
+            )}
+          </button>
+        </div>
+
         {/* System Prompt */}
         <Textarea
           label={t('prompt.systemPromptOptional')}
@@ -264,6 +302,22 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
         />
+
+        {/* System Prompt English */}
+        {showEnglishVersion && (
+          <div className="space-y-2 pl-4 border-l-2 border-primary/30">
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">EN</span>
+              {t('prompt.systemPromptEn')}
+            </label>
+            <Textarea
+              placeholder="Enter English System Prompt..."
+              value={systemPromptEn}
+              onChange={(e) => setSystemPromptEn(e.target.value)}
+              className="min-h-[120px]"
+            />
+          </div>
+        )}
 
         {/* User Prompt */}
         <Textarea
@@ -273,6 +327,22 @@ export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }
           onChange={(e) => setUserPrompt(e.target.value)}
           className="min-h-[200px]"
         />
+
+        {/* User Prompt English */}
+        {showEnglishVersion && (
+          <div className="space-y-2 pl-4 border-l-2 border-primary/30">
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">EN</span>
+              {t('prompt.userPromptEn')}
+            </label>
+            <Textarea
+              placeholder="Enter English User Prompt..."
+              value={userPromptEn}
+              onChange={(e) => setUserPromptEn(e.target.value)}
+              className="min-h-[150px]"
+            />
+          </div>
+        )}
 
         {/* 变量提示 */}
         <div className="p-4 rounded-xl bg-accent/50 text-sm">

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useFolderStore } from '../../stores/folder.store';
 import { useSettingsStore } from '../../stores/settings.store';
-import { StarIcon, CopyIcon, HistoryIcon, HashIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon, ClockIcon } from 'lucide-react';
+import { StarIcon, CopyIcon, HistoryIcon, HashIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon, ClockIcon, GlobeIcon } from 'lucide-react';
 import { EditPromptModal, VersionHistoryModal, VariableInputModal, PromptListHeader, PromptListView, PromptTableView, AiTestModal, PromptDetailModal, PromptGalleryView } from '../prompt';
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu';
 import { ImagePreviewModal } from '../ui/ImagePreviewModal';
@@ -76,10 +76,7 @@ export function MainContent() {
   const selectedFolderId = useFolderStore((state) => state.selectedFolderId);
   const folders = useFolderStore((state) => state.folders);
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
   const [isAiTestVariableModalOpen, setIsAiTestVariableModalOpen] = useState(false);
@@ -90,6 +87,7 @@ export function MainContent() {
   const renderMarkdownPref = useSettingsStore((state) => state.renderMarkdown);
   const setRenderMarkdownPref = useSettingsStore((state) => state.setRenderMarkdown);
   const [renderMarkdownEnabled, setRenderMarkdownEnabled] = useState(renderMarkdownPref);
+  const [showEnglish, setShowEnglish] = useState(false);
   const { showToast } = useToast();
 
   // 按 prompt ID 保存测试状态和结果（持久化）
@@ -149,16 +147,10 @@ export function MainContent() {
     selectPrompt(null);
   }, [selectedFolderId, selectPrompt]);
 
-  // 切换 Prompt 时重置选中的模型（但保留测试结果和状态）
+  // 切换 Prompt 时重置选中的模型
   useEffect(() => {
     setSelectedModelIds([]);
-    // 如果当前 prompt 有测试结果，显示 AI 面板
-    if (selectedId && promptTestStates[selectedId]?.aiResponse) {
-      setShowAiPanel(true);
-    } else {
-      setShowAiPanel(false);
-    }
-  }, [selectedId, promptTestStates]);
+  }, [selectedId]);
 
   // AI 配置
   const aiProvider = useSettingsStore((state) => state.aiProvider);
@@ -540,10 +532,16 @@ export function MainContent() {
     showToast(t('toast.batchDeleted') || `已删除 ${ids.length} 个 Prompt`, 'success');
   };
 
-  // 列表视图模式：整个区域是表格
-  if (viewMode === 'list') {
-    return (
-      <main className="flex-1 flex flex-col overflow-hidden bg-background">
+  return (
+    <main className="flex-1 relative overflow-hidden bg-background">
+      {/* 列表视图模式 */}
+      <div 
+        className={`absolute inset-0 flex flex-col bg-background transition-opacity duration-200 ease-in-out ${
+          viewMode === 'list' 
+            ? 'opacity-100 z-10 pointer-events-auto' 
+            : 'opacity-0 z-0 pointer-events-none'
+        }`}
+      >
         {/* 顶部：排序 + 视图切换 */}
         <PromptListHeader count={sortedPrompts.length} />
 
@@ -566,77 +564,16 @@ export function MainContent() {
             onContextMenu={handleContextMenu}
           />
         </div>
+      </div>
 
-        {/* 编辑弹窗 */}
-        {editingPrompt && (
-          <EditPromptModal
-            isOpen={true}
-            onClose={() => setEditingPrompt(null)}
-            prompt={editingPrompt}
-          />
-        )}
-
-        {/* AI 测试弹窗 */}
-        <AiTestModal
-          isOpen={isAiTestModalOpen}
-          onClose={() => {
-            setIsAiTestModalOpen(false);
-            setAiTestPrompt(null);
-          }}
-          prompt={aiTestPrompt}
-          onUsageIncrement={handleAiUsageIncrement}
-          onSaveResponse={handleSaveAiResponse}
-        />
-
-        {/* 查看详情弹窗 */}
-        <PromptDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={() => {
-            setIsDetailModalOpen(false);
-            setDetailPrompt(null);
-          }}
-          prompt={detailPrompt}
-          onCopy={handleCopyPrompt}
-          onEdit={(prompt) => setEditingPrompt(prompt)}
-        />
-
-        {/* 版本历史弹窗 */}
-        {versionHistoryPrompt && (
-          <VersionHistoryModal
-            isOpen={isVersionModalOpenTable}
-            onClose={() => {
-              setIsVersionModalOpenTable(false);
-              setVersionHistoryPrompt(null);
-            }}
-            prompt={versionHistoryPrompt}
-            onRestore={handleRestoreVersionFromTable}
-          />
-        )}
-
-        {/* 图片预览弹窗 */}
-        <ImagePreviewModal
-          isOpen={!!previewImage}
-          onClose={() => setPreviewImage(null)}
-          imageSrc={previewImage}
-        />
-
-        {/* 右键菜单 */}
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={menuItems}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
-      </main>
-    );
-  }
-
-  // Gallery 视图
-  if (viewMode === 'gallery') {
-    return (
-      <main className="flex-1 flex flex-col overflow-hidden bg-background">
+      {/* Gallery 视图 */}
+      <div 
+        className={`absolute inset-0 flex flex-col bg-background transition-opacity duration-200 ease-in-out ${
+          viewMode === 'gallery' 
+            ? 'opacity-100 z-10 pointer-events-auto' 
+            : 'opacity-0 z-0 pointer-events-none'
+        }`}
+      >
         <PromptListHeader count={sortedPrompts.length} />
         <PromptGalleryView
           prompts={sortedPrompts}
@@ -650,512 +587,509 @@ export function MainContent() {
           onViewDetail={handleViewDetail}
           onContextMenu={handleContextMenu}
         />
+      </div>
 
-        {/* 编辑弹窗 */}
-        {editingPrompt && (
-          <EditPromptModal
-            isOpen={true}
-            onClose={() => setEditingPrompt(null)}
-            prompt={editingPrompt}
-          />
-        )}
+      {/* 卡片视图模式：左右分栏 */}
+      <div 
+        className={`absolute inset-0 flex overflow-hidden bg-background transition-opacity duration-200 ease-in-out ${
+          viewMode === 'card' 
+            ? 'opacity-100 z-10 pointer-events-auto' 
+            : 'opacity-0 z-0 pointer-events-none'
+        }`}
+      >
+        {/* Prompt 列表 */}
+        <div className="w-80 border-r border-border flex flex-col bg-card/50">
+          {/* 列表头部：排序 + 视图切换 */}
+          <PromptListHeader count={sortedPrompts.length} />
 
-        {/* AI 测试弹窗 */}
-        <AiTestModal
-          isOpen={isAiTestModalOpen}
-          onClose={() => {
-            setIsAiTestModalOpen(false);
-            setAiTestPrompt(null);
-          }}
-          prompt={aiTestPrompt}
-          onUsageIncrement={handleAiUsageIncrement}
-          onSaveResponse={handleSaveAiResponse}
-        />
-
-        {/* 查看详情弹窗 */}
-        <PromptDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={() => {
-            setIsDetailModalOpen(false);
-            setDetailPrompt(null);
-          }}
-          prompt={detailPrompt}
-          onCopy={handleCopyPrompt}
-          onEdit={(prompt) => setEditingPrompt(prompt)}
-        />
-
-        {/* 版本历史弹窗 */}
-        {versionHistoryPrompt && (
-          <VersionHistoryModal
-            isOpen={isVersionModalOpenTable}
-            onClose={() => {
-              setIsVersionModalOpenTable(false);
-              setVersionHistoryPrompt(null);
-            }}
-            prompt={versionHistoryPrompt}
-            onRestore={handleRestoreVersionFromTable}
-          />
-        )}
-
-        {/* 右键菜单 */}
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={menuItems}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
-      </main>
-    );
-  }
-
-  // 卡片视图模式：左右分栏
-  return (
-    <main className="flex-1 flex overflow-hidden bg-background">
-      {/* Prompt 列表 */}
-      <div className="w-80 border-r border-border flex flex-col bg-card/50">
-        {/* 列表头部：排序 + 视图切换 */}
-        <PromptListHeader count={sortedPrompts.length} />
-
-        {/* 列表内容 */}
-        <div className="flex-1 overflow-y-auto">
-          {sortedPrompts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <SparklesIcon className="w-8 h-8 text-primary" />
+          {/* 列表内容 */}
+          <div className="flex-1 overflow-y-auto">
+            {sortedPrompts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <SparklesIcon className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-lg font-medium text-foreground mb-1">{t('prompt.noPrompts')}</p>
+                <p className="text-sm text-muted-foreground">{t('prompt.addFirst')}</p>
               </div>
-              <p className="text-lg font-medium text-foreground mb-1">{t('prompt.noPrompts')}</p>
-              <p className="text-sm text-muted-foreground">{t('prompt.addFirst')}</p>
+            ) : (
+              <div className="p-3 space-y-2">
+                {sortedPrompts.map((prompt) => (
+                  <PromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    isSelected={selectedId === prompt.id}
+                    onSelect={() => selectPrompt(prompt.id)}
+                    onContextMenu={(e) => handleContextMenu(e, prompt)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Prompt 详情 - iOS 风格 */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {selectedPrompt ? (
+            <>
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-5xl mx-auto px-6 py-4">
+              {/* 标题区域 */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-foreground mb-1">{selectedPrompt.title}</h2>
+                  {selectedPrompt.description && (
+                    <p className="text-sm text-muted-foreground">{selectedPrompt.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* 语言切换按钮 */}
+                  {(selectedPrompt.systemPromptEn || selectedPrompt.userPromptEn) && (
+                    <button
+                      onClick={() => setShowEnglish(!showEnglish)}
+                      className={`
+                        flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 active:scale-95 mr-1
+                        ${showEnglish 
+                          ? 'bg-primary text-white' 
+                          : 'bg-accent text-muted-foreground hover:text-foreground'
+                        }
+                      `}
+                      title={showEnglish ? t('prompt.showChinese') : t('prompt.showEnglish')}
+                    >
+                      <GlobeIcon className="w-3.5 h-3.5" />
+                      {showEnglish ? 'EN' : 'ZH'}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => toggleFavorite(selectedPrompt.id)}
+                    className={`
+                      p-2.5 rounded-xl transition-all duration-200
+                      ${selectedPrompt.isFavorite
+                        ? 'text-yellow-500 bg-yellow-500/10'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }
+                      active:scale-95
+                    `}
+                  >
+                    <StarIcon className={`w-5 h-5 ${selectedPrompt.isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => setEditingPrompt(selectedPrompt)}
+                    className="p-2.5 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200 active:scale-95"
+                  >
+                    <EditIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 元信息 */}
+              <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
+                <span className="flex items-center gap-1">
+                  <ClockIcon className="w-3.5 h-3.5" />
+                  {new Date(selectedPrompt.updatedAt).toLocaleString()}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-medium">
+                  v{selectedPrompt.version}
+                </span>
+              </div>
+
+              {/* 图片 */}
+              {selectedPrompt.images && selectedPrompt.images.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex flex-wrap gap-3">
+                    {selectedPrompt.images.map((img, index) => (
+                      <div key={index} className="rounded-lg overflow-hidden border border-border shadow-sm">
+                        <img
+                          src={`local-image://${img}`}
+                          alt={`image-${index}`}
+                          className="max-w-[160px] max-h-[160px] object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                          onClick={() => setPreviewImage(img)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 标签 */}
+              {selectedPrompt.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {selectedPrompt.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-accent-foreground"
+                    >
+                      <HashIcon className="w-3 h-3" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* System Prompt */}
+              {(showEnglish ? selectedPrompt.systemPromptEn : selectedPrompt.systemPrompt) && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                      System Prompt
+                      {showEnglish && <span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">EN</span>}
+                    </span>
+                  </div>
+                  {renderPromptContent(showEnglish ? (selectedPrompt.systemPromptEn || '') : (selectedPrompt.systemPrompt || ''))}
+                </div>
+              )}
+
+              {/* User Prompt */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    User Prompt
+                    {showEnglish && <span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">EN</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleRenderMarkdown}
+                    className="text-[12px] px-3 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    {renderMarkdownEnabled ? t('prompt.showPlain', '显示原文') : t('prompt.showMarkdown', 'Markdown')}
+                  </button>
+                </div>
+                {renderPromptContent(showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt)}
+              </div>
+
+              {/* 多模型对比区域 */}
+              {aiModels.length > 0 && (
+                <div className="mb-4 p-4 rounded-xl bg-card border border-border">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <GitCompareIcon className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">{t('settings.multiModelCompare')}</span>
+                      <span className="text-xs text-muted-foreground">{t('prompt.selectModelsHint')}</span>
+                    </div>
+                  </div>
+
+                  {/* 模型选择列表 */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {aiModels.map((model) => {
+                      const isSelected = selectedModelIds.includes(model.id);
+                      // 获取供应商简称
+                      const providerName = model.name || model.provider;
+                      const displayName = `${providerName} | ${model.model}`;
+                      return (
+                        <button
+                          key={model.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedModelIds(selectedModelIds.filter((id) => id !== model.id));
+                            } else {
+                              setSelectedModelIds([...selectedModelIds, model.id]);
+                            }
+                          }}
+                          className={`
+                            px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                            ${isSelected
+                              ? 'bg-primary text-white'
+                              : 'bg-muted hover:bg-accent text-foreground'
+                            }
+                          `}
+                          title={displayName}
+                        >
+                          {model.model}
+                          {model.isDefault && (
+                            <span className="ml-1 opacity-60">★</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3">
+                    {selectedModelIds.length > 0 && (
+                      <button
+                        onClick={() => setSelectedModelIds([])}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {t('prompt.clearSelection')}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (selectedModelIds.length < 2) {
+                          showToast(t('prompt.selectAtLeast2'), 'error');
+                          return;
+                        }
+                        if (!selectedPrompt) return;
+
+                        // 检查是否有变量
+                        const variableRegex = /\{\{([^}]+)\}\}/g;
+                        const hasVariables = variableRegex.test(selectedPrompt.userPrompt) ||
+                          (selectedPrompt.systemPrompt && variableRegex.test(selectedPrompt.systemPrompt));
+
+                        if (hasVariables) {
+                          setIsCompareVariableModalOpen(true);
+                        } else {
+                          runModelCompare(selectedPrompt.systemPrompt, selectedPrompt.userPrompt);
+                        }
+                      }}
+                      disabled={isComparingModels || selectedModelIds.length < 2}
+                      className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isComparingModels ? (
+                        <LoaderIcon className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <GitCompareIcon className="w-3 h-3" />
+                      )}
+                      <span>{isComparingModels ? t('prompt.comparing') : t('prompt.compareModels', { count: selectedModelIds.length })}</span>
+                    </button>
+                  </div>
+
+                  {compareError && (
+                    <p className="mt-3 text-xs text-red-500">{compareError}</p>
+                  )}
+
+                  {compareResults && compareResults.length > 0 && (
+                    <div className="mt-4 grid md:grid-cols-2 gap-3">
+                      {compareResults.map((res) => (
+                        <div
+                          key={`${res.provider}-${res.model}`}
+                          className={`p-3 rounded-lg border text-xs space-y-2 ${res.success ? 'border-emerald-400/50 bg-emerald-500/5' : 'border-red-400/50 bg-red-500/5'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium truncate">
+                              {res.model}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {res.latency}ms
+                            </div>
+                          </div>
+                          <div className="text-[11px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                            {res.success ? (res.response || '(空)') : (res.error || '未知错误')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* AI 测试响应区域 */}
+              {(isTestingAI || aiResponse) && (
+                <div className="mb-4 p-4 rounded-xl bg-card border border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <SparklesIcon className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">{t('prompt.aiResponse', 'AI 响应')}</span>
+                      <span className="text-xs text-muted-foreground">({aiModel})</span>
+                    </div>
+                    {aiResponse && (
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(aiResponse);
+                          showToast(t('toast.copied'), 'success');
+                        }}
+                        className="p-1.5 rounded hover:bg-muted transition-colors"
+                        title={t('prompt.copy')}
+                      >
+                        <CopyIcon className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                  {isTestingAI ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <LoaderIcon className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">{t('prompt.testing', '测试中...')}</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
+                      {aiResponse}
+                    </div>
+                  )}
+                </div>
+              )}
+              </div>
             </div>
+            {/* 操作按钮 - 固定底部 */}
+            <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-sm px-6 py-3">
+              <div className="max-w-5xl mx-auto flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={async () => {
+                    // 根据语言模式选择内容
+                    const currentUserPrompt = showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt;
+                    const currentSystemPrompt = showEnglish ? (selectedPrompt.systemPromptEn || selectedPrompt.systemPrompt) : selectedPrompt.systemPrompt;
+                    
+                    // 检查是否有变量
+                    const variableRegex = /\{\{([^}]+)\}\}/g;
+                    const hasVariables = variableRegex.test(currentUserPrompt) ||
+                      (currentSystemPrompt && variableRegex.test(currentSystemPrompt));
+
+                    if (hasVariables) {
+                      setIsVariableModalOpen(true);
+                    } else {
+                      await navigator.clipboard.writeText(currentUserPrompt);
+                      await incrementUsageCount(selectedPrompt.id);
+                      setCopied(true);
+                      showToast(t('toast.copied'), 'success', showCopyNotification);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }}
+                  className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
+                  <span>{copied ? t('prompt.copied') : t('prompt.copy')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (!aiApiKey) {
+                      showToast(t('toast.configAI'), 'error');
+                      return;
+                    }
+                    // 根据语言模式选择内容
+                    const currentUserPrompt = showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt;
+                    const currentSystemPrompt = showEnglish ? (selectedPrompt.systemPromptEn || selectedPrompt.systemPrompt) : selectedPrompt.systemPrompt;
+                    
+                    const variableRegex = /\{\{([^}]+)\}\}/g;
+                    const hasVariables = variableRegex.test(currentUserPrompt) ||
+                      (currentSystemPrompt && variableRegex.test(currentSystemPrompt));
+
+                    if (hasVariables) {
+                      setIsAiTestVariableModalOpen(true);
+                    } else {
+                      runAiTest(currentSystemPrompt, currentUserPrompt);
+                    }
+                  }}
+                  disabled={isTestingAI}
+                  className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary/90 text-white text-sm font-medium hover:bg-primary disabled:opacity-50 transition-colors"
+                >
+                  {isTestingAI ? <LoaderIcon className="w-4 h-4 animate-spin" /> : <PlayIcon className="w-4 h-4" />}
+                  <span>{isTestingAI ? t('prompt.testing') : t('prompt.aiTest')}</span>
+                </button>
+                <button
+                  onClick={() => handleVersionHistory(selectedPrompt)}
+                  className="flex items-center gap-2 h-9 px-4 rounded-lg bg-card border border-border text-sm font-medium hover:bg-accent transition-colors"
+                >
+                  <HistoryIcon className="w-4 h-4" />
+                  <span>{t('prompt.history')}</span>
+                </button>
+                <button
+                  onClick={() => handleDeletePrompt(selectedPrompt)}
+                  className="flex items-center gap-2 h-9 px-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  <span>{t('prompt.delete')}</span>
+                </button>
+              </div>
+            </div>
+            </>
           ) : (
-            <div className="p-3 space-y-2">
-              {sortedPrompts.map((prompt) => (
-                <PromptCard
-                  key={prompt.id}
-                  prompt={prompt}
-                  isSelected={selectedId === prompt.id}
-                  onSelect={() => selectPrompt(prompt.id)}
-                  onContextMenu={(e) => handleContextMenu(e, prompt)}
-                />
-              ))}
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <div className="w-16 h-16 rounded-2xl bg-accent/50 flex items-center justify-center mb-4">
+                <SparklesIcon className="w-8 h-8 text-muted-foreground/50" />
+              </div>
+              <p>{t('prompt.selectPrompt')}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Prompt 详情 - iOS 风格 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {selectedPrompt ? (
-          <>
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-5xl mx-auto px-6 py-4">
-            {/* 标题区域 */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-foreground mb-1">{selectedPrompt.title}</h2>
-                {selectedPrompt.description && (
-                  <p className="text-sm text-muted-foreground">{selectedPrompt.description}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => toggleFavorite(selectedPrompt.id)}
-                  className={`
-                    p-2.5 rounded-xl transition-all duration-200
-                    ${selectedPrompt.isFavorite
-                      ? 'text-yellow-500 bg-yellow-500/10'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    }
-                    active:scale-95
-                  `}
-                >
-                  <StarIcon className={`w-5 h-5 ${selectedPrompt.isFavorite ? 'fill-current' : ''}`} />
-                </button>
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="p-2.5 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200 active:scale-95"
-                >
-                  <EditIcon className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* 元信息 */}
-            <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
-              <span className="flex items-center gap-1">
-                <ClockIcon className="w-3.5 h-3.5" />
-                {new Date(selectedPrompt.updatedAt).toLocaleString()}
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-accent text-accent-foreground text-xs font-medium">
-                v{selectedPrompt.version}
-              </span>
-            </div>
-
-            {/* 图片 */}
-            {selectedPrompt.images && selectedPrompt.images.length > 0 && (
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-3">
-                  {selectedPrompt.images.map((img, index) => (
-                    <div key={index} className="rounded-lg overflow-hidden border border-border shadow-sm">
-                      <img
-                        src={`local-image://${img}`}
-                        alt={`image-${index}`}
-                        className="max-w-[160px] max-h-[160px] object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                        onClick={() => setPreviewImage(img)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 标签 */}
-            {selectedPrompt.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {selectedPrompt.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-accent-foreground"
-                  >
-                    <HashIcon className="w-3 h-3" />
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* System Prompt */}
-            {selectedPrompt.systemPrompt && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    System Prompt
-                  </span>
-                </div>
-                {renderPromptContent(selectedPrompt.systemPrompt)}
-              </div>
-            )}
-
-            {/* User Prompt */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  User Prompt
-                </span>
-                <button
-                  type="button"
-                  onClick={toggleRenderMarkdown}
-                  className="text-[12px] px-3 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                >
-                  {renderMarkdownEnabled ? t('prompt.showPlain', '显示原文') : t('prompt.showMarkdown', 'Markdown')}
-                </button>
-              </div>
-              {renderPromptContent(selectedPrompt.userPrompt)}
-            </div>
-
-            {/* 多模型对比区域 */}
-            {aiModels.length > 0 && (
-              <div className="mb-4 p-4 rounded-xl bg-card border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <GitCompareIcon className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">{t('settings.multiModelCompare')}</span>
-                    <span className="text-xs text-muted-foreground">{t('prompt.selectModelsHint')}</span>
-                  </div>
-                </div>
-
-                {/* 模型选择列表 */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {aiModels.map((model) => {
-                    const isSelected = selectedModelIds.includes(model.id);
-                    // 获取供应商简称
-                    const providerName = model.name || model.provider;
-                    const displayName = `${providerName} | ${model.model}`;
-                    return (
-                      <button
-                        key={model.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedModelIds(selectedModelIds.filter((id) => id !== model.id));
-                          } else {
-                            setSelectedModelIds([...selectedModelIds, model.id]);
-                          }
-                        }}
-                        className={`
-                          px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                          ${isSelected
-                            ? 'bg-primary text-white'
-                            : 'bg-muted hover:bg-accent text-foreground'
-                          }
-                        `}
-                        title={displayName}
-                      >
-                        {model.model}
-                        {model.isDefault && (
-                          <span className="ml-1 opacity-60">★</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center justify-end gap-3">
-                  {selectedModelIds.length > 0 && (
-                    <button
-                      onClick={() => setSelectedModelIds([])}
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {t('prompt.clearSelection')}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (selectedModelIds.length < 2) {
-                        showToast(t('prompt.selectAtLeast2'), 'error');
-                        return;
-                      }
-                      if (!selectedPrompt) return;
-
-                      // 检查是否有变量
-                      const variableRegex = /\{\{([^}]+)\}\}/g;
-                      const hasVariables = variableRegex.test(selectedPrompt.userPrompt) ||
-                        (selectedPrompt.systemPrompt && variableRegex.test(selectedPrompt.systemPrompt));
-
-                      if (hasVariables) {
-                        setIsCompareVariableModalOpen(true);
-                      } else {
-                        runModelCompare(selectedPrompt.systemPrompt, selectedPrompt.userPrompt);
-                      }
-                    }}
-                    disabled={isComparingModels || selectedModelIds.length < 2}
-                    className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                  >
-                    {isComparingModels ? (
-                      <LoaderIcon className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <GitCompareIcon className="w-3 h-3" />
-                    )}
-                    <span>{isComparingModels ? t('prompt.comparing') : t('prompt.compareModels', { count: selectedModelIds.length })}</span>
-                  </button>
-                </div>
-
-                {compareError && (
-                  <p className="mt-3 text-xs text-red-500">{compareError}</p>
-                )}
-
-                {compareResults && compareResults.length > 0 && (
-                  <div className="mt-4 grid md:grid-cols-2 gap-3">
-                    {compareResults.map((res) => (
-                      <div
-                        key={`${res.provider}-${res.model}`}
-                        className={`p-3 rounded-lg border text-xs space-y-2 ${res.success ? 'border-emerald-400/50 bg-emerald-500/5' : 'border-red-400/50 bg-red-500/5'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium truncate">
-                            {res.model}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {res.latency}ms
-                          </div>
-                        </div>
-                        <div className="text-[11px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
-                          {res.success ? (res.response || '(空)') : (res.error || '未知错误')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* AI 测试响应区域 */}
-            {(isTestingAI || aiResponse) && (
-              <div className="mb-4 p-4 rounded-xl bg-card border border-border">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <SparklesIcon className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">{t('prompt.aiResponse', 'AI 响应')}</span>
-                    <span className="text-xs text-muted-foreground">({aiModel})</span>
-                  </div>
-                  {aiResponse && (
-                    <button
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(aiResponse);
-                        showToast(t('toast.copied'), 'success');
-                      }}
-                      className="p-1.5 rounded hover:bg-muted transition-colors"
-                      title={t('prompt.copy')}
-                    >
-                      <CopyIcon className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-                {isTestingAI ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <LoaderIcon className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">{t('prompt.testing', '测试中...')}</span>
-                  </div>
-                ) : (
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {aiResponse}
-                  </div>
-                )}
-              </div>
-            )}
-            </div>
-          </div>
-          {/* 操作按钮 - 固定底部 */}
-          <div className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-sm px-6 py-3">
-            <div className="max-w-5xl mx-auto flex items-center gap-3 flex-wrap">
-              <button
-                onClick={async () => {
-                  // 检查是否有变量
-                  const variableRegex = /\{\{([^}]+)\}\}/g;
-                  const hasVariables = variableRegex.test(selectedPrompt.userPrompt) ||
-                    (selectedPrompt.systemPrompt && variableRegex.test(selectedPrompt.systemPrompt));
-
-                  if (hasVariables) {
-                    setIsVariableModalOpen(true);
-                  } else {
-                    const text = selectedPrompt.userPrompt;
-                    await navigator.clipboard.writeText(text);
-                    await incrementUsageCount(selectedPrompt.id);
-                    setCopied(true);
-                    showToast(t('toast.copied'), 'success', showCopyNotification);
-                    setTimeout(() => setCopied(false), 2000);
-                  }
-                }}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                {copied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />}
-                <span>{copied ? t('prompt.copied') : t('prompt.copy')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (!aiApiKey) {
-                    showToast(t('toast.configAI'), 'error');
-                    return;
-                  }
-                  const variableRegex = /\{\{([^}]+)\}\}/g;
-                  const hasVariables = variableRegex.test(selectedPrompt.userPrompt) ||
-                    (selectedPrompt.systemPrompt && variableRegex.test(selectedPrompt.systemPrompt));
-
-                  if (hasVariables) {
-                    setIsAiTestVariableModalOpen(true);
-                  } else {
-                    runAiTest(selectedPrompt.systemPrompt, selectedPrompt.userPrompt);
-                  }
-                }}
-                disabled={isTestingAI}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-primary/90 text-white text-sm font-medium hover:bg-primary disabled:opacity-50 transition-colors"
-              >
-                {isTestingAI ? <LoaderIcon className="w-4 h-4 animate-spin" /> : <PlayIcon className="w-4 h-4" />}
-                <span>{isTestingAI ? t('prompt.testing') : t('prompt.aiTest')}</span>
-              </button>
-              <button
-                onClick={() => setIsVersionModalOpen(true)}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-card border border-border text-sm font-medium hover:bg-accent transition-colors"
-              >
-                <HistoryIcon className="w-4 h-4" />
-                <span>{t('prompt.history')}</span>
-              </button>
-              <button
-                onClick={() => handleDeletePrompt(selectedPrompt)}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
-              >
-                <TrashIcon className="w-4 h-4" />
-                <span>{t('prompt.delete')}</span>
-              </button>
-            </div>
-          </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <div className="w-16 h-16 rounded-2xl bg-accent/50 flex items-center justify-center mb-4">
-              <SparklesIcon className="w-8 h-8 text-muted-foreground/50" />
-            </div>
-            <p>{t('prompt.selectPrompt')}</p>
-          </div>
-        )}
-      </div>
-
+      {/* 共享弹窗 */}
+      
       {/* 编辑弹窗 */}
-      {selectedPrompt && (
+      {editingPrompt && (
         <EditPromptModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          prompt={selectedPrompt}
+          isOpen={!!editingPrompt}
+          onClose={() => setEditingPrompt(null)}
+          prompt={editingPrompt}
         />
       )}
 
-      {/* 卡片视图不使用 AiTestModal，AI 响应直接在页面内显示 */}
+      {/* AI 测试弹窗 (用于 List/Gallery 视图) */}
+      <AiTestModal
+        isOpen={isAiTestModalOpen}
+        onClose={() => {
+          setIsAiTestModalOpen(false);
+          setAiTestPrompt(null);
+        }}
+        prompt={aiTestPrompt}
+        onUsageIncrement={handleAiUsageIncrement}
+        onSaveResponse={handleSaveAiResponse}
+      />
 
-      {/* 变量输入弹窗（用于复制） */}
-      {
-        selectedPrompt && (
-          <VariableInputModal
-            isOpen={isVariableModalOpen}
-            onClose={() => setIsVariableModalOpen(false)}
-            promptId={selectedPrompt.id}
-            systemPrompt={selectedPrompt.systemPrompt}
-            userPrompt={selectedPrompt.userPrompt}
-            mode="copy"
-            onCopy={async (text) => {
-              await navigator.clipboard.writeText(text);
-              await incrementUsageCount(selectedPrompt.id);
-              setCopied(true);
-              showToast(t('toast.copied'), 'success', showCopyNotification);
-              setTimeout(() => setCopied(false), 2000);
-              setIsVariableModalOpen(false);
-            }}
-          />
-        )
-      }
+      {/* 查看详情弹窗 (用于 List/Gallery 视图) */}
+      <PromptDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setDetailPrompt(null);
+        }}
+        prompt={detailPrompt}
+        onCopy={handleCopyPrompt}
+        onEdit={(prompt) => setEditingPrompt(prompt)}
+      />
 
-      {/* 变量输入弹窗（用于 AI 测试） */}
-      {
-        selectedPrompt && (
-          <VariableInputModal
-            isOpen={isAiTestVariableModalOpen}
-            onClose={() => setIsAiTestVariableModalOpen(false)}
-            promptId={selectedPrompt.id}
-            systemPrompt={selectedPrompt.systemPrompt}
-            userPrompt={selectedPrompt.userPrompt}
-            mode="aiTest"
-            onAiTest={(filledSystemPrompt, filledUserPrompt) => {
-              runAiTest(filledSystemPrompt, filledUserPrompt);
-            }}
-            isAiTesting={isTestingAI}
-          />
-        )
-      }
-
-      {/* 变量输入弹窗（用于多模型对比） */}
-      {
-        selectedPrompt && (
-          <VariableInputModal
-            isOpen={isCompareVariableModalOpen}
-            onClose={() => setIsCompareVariableModalOpen(false)}
-            promptId={selectedPrompt.id}
-            systemPrompt={selectedPrompt.systemPrompt}
-            userPrompt={selectedPrompt.userPrompt}
-            mode="aiTest"
-            onAiTest={(filledSystemPrompt, filledUserPrompt) => {
-              runModelCompare(filledSystemPrompt, filledUserPrompt);
-            }}
-            isAiTesting={isComparingModels}
-          />
-        )
-      }
-      {/* 版本历史弹窗 */}
+      {/* 变量输入弹窗（用于复制） - 根据语言模式选择内容 */}
       {selectedPrompt && (
+        <VariableInputModal
+          isOpen={isVariableModalOpen}
+          onClose={() => setIsVariableModalOpen(false)}
+          promptId={selectedPrompt.id}
+          systemPrompt={showEnglish ? (selectedPrompt.systemPromptEn || selectedPrompt.systemPrompt) : selectedPrompt.systemPrompt}
+          userPrompt={showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt}
+          mode="copy"
+          onCopy={async (text) => {
+            await navigator.clipboard.writeText(text);
+            await incrementUsageCount(selectedPrompt.id);
+            setCopied(true);
+            showToast(t('toast.copied'), 'success', showCopyNotification);
+            setTimeout(() => setCopied(false), 2000);
+            setIsVariableModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* 变量输入弹窗（用于 AI 测试） - 根据语言模式选择内容 */}
+      {selectedPrompt && (
+        <VariableInputModal
+          isOpen={isAiTestVariableModalOpen}
+          onClose={() => setIsAiTestVariableModalOpen(false)}
+          promptId={selectedPrompt.id}
+          systemPrompt={showEnglish ? (selectedPrompt.systemPromptEn || selectedPrompt.systemPrompt) : selectedPrompt.systemPrompt}
+          userPrompt={showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt}
+          mode="aiTest"
+          onAiTest={(filledSystemPrompt, filledUserPrompt) => {
+            runAiTest(filledSystemPrompt, filledUserPrompt);
+          }}
+          isAiTesting={isTestingAI}
+        />
+      )}
+
+      {/* 变量输入弹窗（用于多模型对比） - 根据语言模式选择内容 */}
+      {selectedPrompt && (
+        <VariableInputModal
+          isOpen={isCompareVariableModalOpen}
+          onClose={() => setIsCompareVariableModalOpen(false)}
+          promptId={selectedPrompt.id}
+          systemPrompt={showEnglish ? (selectedPrompt.systemPromptEn || selectedPrompt.systemPrompt) : selectedPrompt.systemPrompt}
+          userPrompt={showEnglish ? (selectedPrompt.userPromptEn || selectedPrompt.userPrompt) : selectedPrompt.userPrompt}
+          mode="aiTest"
+          onAiTest={(filledSystemPrompt, filledUserPrompt) => {
+            runModelCompare(filledSystemPrompt, filledUserPrompt);
+          }}
+          isAiTesting={isComparingModels}
+        />
+      )}
+
+      {/* 版本历史弹窗 (Unified) */}
+      {versionHistoryPrompt && (
         <VersionHistoryModal
-          isOpen={isVersionModalOpen}
-          onClose={() => setIsVersionModalOpen(false)}
-          prompt={selectedPrompt}
-          onRestore={handleRestoreVersion}
+          isOpen={isVersionModalOpenTable}
+          onClose={() => {
+            setIsVersionModalOpenTable(false);
+            setVersionHistoryPrompt(null);
+          }}
+          prompt={versionHistoryPrompt}
+          onRestore={handleRestoreVersionFromTable}
         />
       )}
 
@@ -1177,6 +1111,16 @@ export function MainContent() {
         cancelText={t('common.cancel')}
         variant="destructive"
       />
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={menuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </main>
   );
 }

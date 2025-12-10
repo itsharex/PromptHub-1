@@ -20,10 +20,14 @@ build/
 
 # Electron
 release/
+dist-electron/
+dist/
+out/
 
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 

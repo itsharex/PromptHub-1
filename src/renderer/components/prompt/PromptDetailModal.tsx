@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { StarIcon, HashIcon, ClockIcon, CopyIcon, CheckIcon, SparklesIcon, EditIcon, MaximizeIcon, MinimizeIcon } from 'lucide-react';
+import { StarIcon, HashIcon, ClockIcon, CopyIcon, CheckIcon, SparklesIcon, EditIcon, MaximizeIcon, MinimizeIcon, GlobeIcon } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { ImagePreviewModal } from '../ui/ImagePreviewModal';
 import type { Prompt } from '../../../shared/types';
@@ -31,6 +31,7 @@ export function PromptDetailModal({
   const [copiedAi, setCopiedAi] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showEnglish, setShowEnglish] = useState(false);
 
   const sanitizeSchema: any = useMemo(() => {
     const schema = { ...defaultSchema, attributes: { ...defaultSchema.attributes } };
@@ -135,6 +136,24 @@ export function PromptDetailModal({
 
   const headerActions = (
     <div className="flex items-center gap-2">
+      {/* 语言切换按钮 */}
+      {(prompt.systemPromptEn || prompt.userPromptEn) && (
+        <button
+          onClick={() => setShowEnglish(!showEnglish)}
+          className={`
+            flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+            ${showEnglish 
+              ? 'bg-primary text-white' 
+              : 'bg-muted hover:bg-accent text-foreground'
+            }
+          `}
+          title={showEnglish ? t('prompt.showChinese') : t('prompt.showEnglish')}
+        >
+          <GlobeIcon className="w-3.5 h-3.5" />
+          {showEnglish ? 'EN' : 'ZH'}
+        </button>
+      )}
+
       <button
         onClick={() => setIsFullscreen((v) => !v)}
         className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -251,10 +270,13 @@ export function PromptDetailModal({
         )}
 
         {/* System Prompt */}
-        {prompt.systemPrompt && (
+        {(showEnglish ? prompt.systemPromptEn : prompt.systemPrompt) && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-muted-foreground">{t('prompt.systemPrompt')}</h4>
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                {t('prompt.systemPrompt')}
+                {showEnglish && <span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">EN</span>}
+              </h4>
               <button
                 onClick={handleCopySystem}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -263,14 +285,17 @@ export function PromptDetailModal({
                 {copiedSystem ? t('prompt.copied') : t('prompt.copy')}
               </button>
             </div>
-            {renderPromptContent(prompt.systemPrompt)}
+            {renderPromptContent(showEnglish ? (prompt.systemPromptEn || '') : (prompt.systemPrompt || ''))}
           </div>
         )}
 
         {/* User Prompt */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-muted-foreground">{t('prompt.userPrompt')}</h4>
+            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              {t('prompt.userPrompt')}
+              {showEnglish && <span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[10px]">EN</span>}
+            </h4>
             <button
               onClick={handleCopyUser}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -279,7 +304,7 @@ export function PromptDetailModal({
               {copiedUser ? t('prompt.copied') : t('prompt.copy')}
             </button>
           </div>
-          {renderPromptContent(prompt.userPrompt)}
+          {renderPromptContent(showEnglish ? (prompt.userPromptEn || prompt.userPrompt) : prompt.userPrompt)}
         </div>
 
         {/* AI 响应 */}

@@ -1,13 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StarIcon, CopyIcon, PlayIcon, EditIcon, TrashIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon, FolderIcon, Trash2Icon } from 'lucide-react';
 import type { Prompt } from '../../../shared/types';
 import { useFolderStore } from '../../stores/folder.store';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
-import rehypeHighlight from 'rehype-highlight';
-import { defaultSchema } from 'hast-util-sanitize';
 
 // 自定义 Checkbox 组件
 function Checkbox({ checked, onChange, className = '' }: { checked: boolean; onChange: () => void; className?: string }) {
@@ -72,48 +67,16 @@ export function PromptTableView({
   const [showFolderMenu, setShowFolderMenu] = useState(false);
   const folders = useFolderStore((state) => state.folders);
 
-  const sanitizeSchema: any = useMemo(() => {
-    const schema = { ...defaultSchema, attributes: { ...defaultSchema.attributes } };
-    schema.attributes.code = [...(schema.attributes.code || []), ['className']];
-    schema.attributes.span = [...(schema.attributes.span || []), ['className']];
-    schema.attributes.pre = [...(schema.attributes.pre || []), ['className']];
-    return schema;
-  }, []);
-
-  const rehypePlugins = useMemo(
-    () => [
-      [rehypeHighlight, { ignoreMissing: true }] as any,
-      [rehypeSanitize, sanitizeSchema] as any,
-    ],
-    [sanitizeSchema],
-  );
-
-  const markdownComponents = useMemo(() => ({
-    p: (props: any) => <p className="mb-1 leading-relaxed text-muted-foreground" {...props} />,
-    ul: (props: any) => <ul className="list-disc pl-4 mb-1 space-y-0.5 text-muted-foreground" {...props} />,
-    ol: (props: any) => <ol className="list-decimal pl-4 mb-1 space-y-0.5 text-muted-foreground" {...props} />,
-    li: (props: any) => <li className="leading-relaxed" {...props} />,
-    code: (props: any) => <code className="px-1 py-0.5 rounded bg-muted font-mono text-[12px]" {...props} />,
-    pre: (props: any) => (
-      <pre className="p-2 rounded bg-muted overflow-x-auto text-[12px] leading-relaxed" {...props} />
-    ),
-    a: (props: any) => <a className="text-primary hover:underline" {...props} target="_blank" rel="noreferrer" />,
-  }), []);
-
-  const renderMarkdownPreview = (content?: string) => {
+  const renderTextPreview = (content?: string) => {
     if (!content) {
       return <span className="text-muted-foreground/40 text-xs">-</span>;
     }
+    // 只显示纯文本，截断为单行
+    const plainText = content.replace(/\n/g, ' ').trim();
     return (
-      <div className="markdown-preview text-xs text-muted-foreground line-clamp-2 max-w-[220px] break-words space-y-1">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={rehypePlugins}
-          components={markdownComponents}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
+      <span className="text-xs text-muted-foreground truncate block max-w-[220px]" title={content}>
+        {plainText}
+      </span>
     );
   };
 
@@ -332,12 +295,12 @@ export function PromptTableView({
 
                     {/* Prompt 内容预览 */}
                     <td className="px-4 py-3 min-w-[180px]">
-                      {renderMarkdownPreview(prompt.userPrompt)}
+                      {renderTextPreview(prompt.userPrompt)}
                     </td>
 
                     {/* AI 响应预览 */}
                     <td className="px-4 py-3 min-w-[180px]">
-                      {renderMarkdownPreview(aiContent)}
+                      {renderTextPreview(aiContent)}
                     </td>
 
                     {/* 变量数 */}

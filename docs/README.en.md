@@ -7,7 +7,7 @@
   <p>
     <a href="https://github.com/legeling/PromptHub/stargazers"><img src="https://img.shields.io/github/stars/legeling/PromptHub?style=flat-square&color=yellow" alt="GitHub Stars"/></a>
     <a href="https://github.com/legeling/PromptHub/network/members"><img src="https://img.shields.io/github/forks/legeling/PromptHub?style=flat-square" alt="GitHub Forks"/></a>
-    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.3-green?style=flat-square" alt="Version"/></a>
+    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.4-green?style=flat-square" alt="Version"/></a>
     <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/github/downloads/legeling/PromptHub/total?style=flat-square&color=blue" alt="Downloads"/></a>
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="License: AGPL-3.0"/>
   </p>
@@ -229,6 +229,15 @@ PromptHub/
 - [ ] Browser extension
 
 ## 📝 Changelog
+
+### v0.2.4 (2025-12-10)
+**New Features**
+- 🌐 Bilingual prompt support (Chinese/English versions), switchable in detail view
+- 📋 Copy and AI test operations use content based on current language mode
+
+**Improvements**
+- 🎨 Improved view transition with smooth fade animation (Closes #13)
+- 🎨 View mode switcher with sliding indicator animation
 
 ### v0.2.3 (2025-12-10)
 **Bug Fixes**
