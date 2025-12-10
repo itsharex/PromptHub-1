@@ -230,16 +230,20 @@ PromptHub/
 
 ## 📝 Changelog
 
-### v0.2.3 (2025-12-08)
+### v0.2.3 (2025-12-10)
 **Bug Fixes**
 - 🐛 Fixed Windows input fields becoming unresponsive after deleting a Prompt (native confirm dialog focus issue)
 - 🐛 Fixed Windows tray icon appearing transparent
 - 🐛 Fixed About page icon not showing in packaged app
 - 🐛 Fixed auto-updater module failing to load (switched to static import)
+- 🐛 Fixed folder selection being lost when creating a new Prompt
+- 🐛 Fixed CI/CD build failure (EEXIST: file already exists)
 
 **Improvements**
 - 🎨 Replaced native confirm dialog with custom ConfirmDialog for better Windows compatibility
 - 🎨 Improved tray icon loading logic with fallback paths
+- 🎨 Default to current folder when creating new Prompt
+- 🌐 Fixed "Upload" button i18n support
 
 ### v0.2.2 (2025-12-08)
 **Bug Fixes**

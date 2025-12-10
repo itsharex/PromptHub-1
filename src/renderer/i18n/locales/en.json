@@ -361,7 +361,8 @@
     "done": "Done",
     "yesterday": "Yesterday",
     "daysAgo": " days ago",
-    "off": "Off"
+    "off": "Off",
+    "upload": "Upload"
   },
   "toast": {
     "exportSuccess": "Data exported successfully",

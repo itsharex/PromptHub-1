@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal, Button, Input, Textarea } from '../ui';
 import { Select } from '../ui/Select';
 import { HashIcon, XIcon, FolderIcon, ImageIcon, Maximize2Icon, Minimize2Icon } from 'lucide-react';
@@ -18,9 +18,10 @@ interface CreatePromptModalProps {
     images?: string[];
     folderId?: string;
   }) => void;
+  defaultFolderId?: string;
 }
 
-export function CreatePromptModal({ isOpen, onClose, onCreate }: CreatePromptModalProps) {
+export function CreatePromptModal({ isOpen, onClose, onCreate, defaultFolderId }: CreatePromptModalProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -33,6 +34,13 @@ export function CreatePromptModal({ isOpen, onClose, onCreate }: CreatePromptMod
   const [isFullscreen, setIsFullscreen] = useState(false);
   const folders = useFolderStore((state) => state.folders);
   const prompts = usePromptStore((state) => state.prompts);
+
+  // 当弹窗打开时，设置默认文件夹
+  useEffect(() => {
+    if (isOpen && defaultFolderId) {
+      setFolderId(defaultFolderId);
+    }
+  }, [isOpen, defaultFolderId]);
 
   // 获取所有已存在的标签
   const existingTags = [...new Set(prompts.flatMap((p) => p.tags))];

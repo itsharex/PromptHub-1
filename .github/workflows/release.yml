@@ -52,6 +52,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Clean previous build artifacts
+        shell: bash
+        run: |
+          rm -rf dist || true
+
       - name: Build for ${{ matrix.platform }}
         run: pnpm electron:build:${{ matrix.platform }}
         env:

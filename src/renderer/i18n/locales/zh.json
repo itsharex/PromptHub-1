@@ -364,7 +364,8 @@
     "done": "完成",
     "yesterday": "昨天",
     "daysAgo": "天前",
-    "off": "关闭"
+    "off": "关闭",
+    "upload": "上传"
   },
   "toast": {
     "exportSuccess": "数据导出成功",

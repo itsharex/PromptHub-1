@@ -1,6 +1,7 @@
 import { SearchIcon, PlusIcon, SettingsIcon, SunIcon, MoonIcon } from 'lucide-react';
 import { usePromptStore } from '../../stores/prompt.store';
 import { useSettingsStore } from '../../stores/settings.store';
+import { useFolderStore } from '../../stores/folder.store';
 import { useState } from 'react';
 import { CreatePromptModal } from '../prompt/CreatePromptModal';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +17,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
   const createPrompt = usePromptStore((state) => state.createPrompt);
   const isDarkMode = useSettingsStore((state) => state.isDarkMode);
   const setDarkMode = useSettingsStore((state) => state.setDarkMode);
+  const selectedFolderId = useFolderStore((state) => state.selectedFolderId);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const handleCreatePrompt = async (data: {
@@ -25,6 +27,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     userPrompt: string;
     tags: string[];
     images?: string[];
+    folderId?: string;
   }) => {
     try {
       await createPrompt({
@@ -35,6 +38,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         tags: data.tags,
         variables: [],
         images: data.images,
+        folderId: data.folderId,
       });
       setIsCreateModalOpen(false);
     } catch (error) {
@@ -101,6 +105,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreatePrompt}
+        defaultFolderId={selectedFolderId || undefined}
       />
     </>
   );
