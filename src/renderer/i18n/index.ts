@@ -2,11 +2,21 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
 import zh from './locales/zh.json';
+import zhTW from './locales/zh-TW.json';
+import ja from './locales/ja.json';
+import es from './locales/es.json';
+import de from './locales/de.json';
+import fr from './locales/fr.json';
 
-// 获取系统语言
+// 获取系统语言 / Get system language
 const getSystemLanguage = (): string => {
   const lang = navigator.language.toLowerCase();
+  if (lang === 'zh-tw' || lang === 'zh-hant') return 'zh-TW';
   if (lang.startsWith('zh')) return 'zh';
+  if (lang.startsWith('ja')) return 'ja';
+  if (lang.startsWith('es')) return 'es';
+  if (lang.startsWith('de')) return 'de';
+  if (lang.startsWith('fr')) return 'fr';
   return 'en';
 };
 
@@ -30,9 +40,14 @@ i18n
     resources: {
       en: { translation: en },
       zh: { translation: zh },
+      'zh-TW': { translation: zhTW },
+      ja: { translation: ja },
+      es: { translation: es },
+      de: { translation: de },
+      fr: { translation: fr },
     },
     lng: getSavedLanguage() || getSystemLanguage(),
-    fallbackLng: 'zh',
+    fallbackLng: 'en',
     interpolation: {
       escapeValue: false,
     },

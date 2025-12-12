@@ -7,7 +7,7 @@
   <p>
     <a href="https://github.com/legeling/PromptHub/stargazers"><img src="https://img.shields.io/github/stars/legeling/PromptHub?style=flat-square&color=yellow" alt="GitHub Stars"/></a>
     <a href="https://github.com/legeling/PromptHub/network/members"><img src="https://img.shields.io/github/forks/legeling/PromptHub?style=flat-square" alt="GitHub Forks"/></a>
-    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.4-green?style=flat-square" alt="Version"/></a>
+    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.5-green?style=flat-square" alt="Version"/></a>
     <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/github/downloads/legeling/PromptHub/total?style=flat-square&color=blue" alt="Downloads"/></a>
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="License: AGPL-3.0"/>
   </p>
@@ -21,7 +21,11 @@
   
   <p>
     <a href="../README.md">简体中文</a> ·
-    <a href="./README.en.md">English</a>
+    <a href="./README.en.md">English</a> ·
+    <a href="./README.ja.md">日本語</a> ·
+    <a href="./README.es.md">Español</a> ·
+    <a href="./README.de.md">Deutsch</a> ·
+    <a href="./README.fr.md">Français</a>
   </p>
 </div>
 
@@ -30,6 +34,21 @@
 > 💡 **Why PromptHub?**
 > 
 > Tired of searching for prompts in notebooks, documents, and chat histories? PromptHub lets you manage prompts like code — version control, variable templates, multi-model testing, all local and privacy-first.
+
+---
+
+## 📥 Download
+
+> 💡 Click the links below to download the latest version, or visit the [Releases page](https://github.com/legeling/PromptHub/releases) for all versions.
+
+| Platform | Architecture | Download |
+|:---:|:---:|:---:|
+| **Windows** | x64 | [PromptHub-Setup.exe](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-Setup.exe) |
+| **Windows** | x64 (Portable) | [PromptHub-Portable.exe](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-Portable.exe) |
+| **macOS** | Apple Silicon (M1/M2/M3) | [PromptHub-arm64.dmg](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-arm64.dmg) |
+| **macOS** | Intel | [PromptHub-x64.dmg](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-x64.dmg) |
+| **Linux** | x64 (AppImage) | [PromptHub.AppImage](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub.AppImage) |
+| **Linux** | x64 (deb) | [PromptHub.deb](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub.deb) |
 
 ---
 
@@ -43,7 +62,7 @@
 - **🔍 Full-Text Search** - Fast search across titles, descriptions, and content
 - **📤 Data Export** - JSON format backup and restore
 - **🎨 Theme Customization** - Dark/Light/System modes with multiple accent colors
-- **🌐 Multi-Language** - Chinese and English interface support
+- **🌐 Multi-Language** - Chinese, English, Japanese, Spanish, German, French interface support
 - **💾 Local Storage** - All data stored locally for privacy
 - **🖥️ Cross-Platform** - Support for macOS, Windows, Linux
 - **📊 List View** - Table-style display with sorting and batch operations
@@ -229,6 +248,15 @@ PromptHub/
 - [ ] Browser extension
 
 ## 📝 Changelog
+
+### v0.2.5 (2025-12-11)
+**New Features**
+- 📥 Added quick download table to README for Windows/macOS/Linux
+- 🔔 Improved update dialog with Markdown-rendered release notes
+- 🚀 Auto-check for updates on startup (configurable in settings)
+
+**Bug Fixes**
+- ☁️ Fixed WebDAV sync failure with Nutstore (added MKCOL directory creation and User-Agent header)
 
 ### v0.2.4 (2025-12-10)
 **New Features**

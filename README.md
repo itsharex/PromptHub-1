@@ -7,7 +7,7 @@
   <p>
     <a href="https://github.com/legeling/PromptHub/stargazers"><img src="https://img.shields.io/github/stars/legeling/PromptHub?style=flat-square&color=yellow" alt="GitHub Stars"/></a>
     <a href="https://github.com/legeling/PromptHub/network/members"><img src="https://img.shields.io/github/forks/legeling/PromptHub?style=flat-square" alt="GitHub Forks"/></a>
-    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.4-green?style=flat-square" alt="Version"/></a>
+    <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/badge/version-v0.2.5-green?style=flat-square" alt="Version"/></a>
     <a href="https://github.com/legeling/PromptHub/releases"><img src="https://img.shields.io/github/downloads/legeling/PromptHub/total?style=flat-square&color=blue" alt="Downloads"/></a>
     <img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="License: AGPL-3.0"/>
   </p>
@@ -21,7 +21,11 @@
   
   <p>
     <a href="./README.md">简体中文</a> ·
-    <a href="./docs/README.en.md">English</a>
+    <a href="./docs/README.en.md">English</a> ·
+    <a href="./docs/README.ja.md">日本語</a> ·
+    <a href="./docs/README.es.md">Español</a> ·
+    <a href="./docs/README.de.md">Deutsch</a> ·
+    <a href="./docs/README.fr.md">Français</a>
   </p>
 </div>
 
@@ -30,6 +34,20 @@
 > 💡 **为什么选择 PromptHub？**
 > 
 > 还在笔记本、文档和聊天记录里到处翻找 Prompt？PromptHub 让你像管理代码一样管理 Prompt — 支持版本控制、变量模板、多模型测试，所有数据都存在本地，隐私安全有保障。
+
+---
+
+## 📥 下载安装 / Download
+
+> 💡 点击下方链接直接下载最新版本，或访问 [Releases 页面](https://github.com/legeling/PromptHub/releases) 查看所有版本。
+
+| 平台 / Platform | 架构 / Arch | 下载链接 / Download |
+|:---:|:---:|:---:|
+| **Windows** | x64 | [PromptHub-Setup.exe](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-Setup.exe) |
+| **macOS** | Apple Silicon (M系列芯片) | [PromptHub-arm64.dmg](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-arm64.dmg) |
+| **macOS** | Intel | [PromptHub-x64.dmg](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub-x64.dmg) |
+| **Linux** | x64 (AppImage) | [PromptHub.AppImage](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub.AppImage) |
+| **Linux** | x64 (deb) | [PromptHub.deb](https://github.com/legeling/PromptHub/releases/latest/download/PromptHub.deb) |
 
 ---
 
@@ -43,7 +61,7 @@
 - **🔍 全文搜索** - 快速搜索标题、描述和内容
 - **📤 数据导出** - JSON 格式备份和恢复（包含图片和 AI 配置）
 - **🎨 主题定制** - 深色/浅色/跟随系统，多种主题色可选
-- **🌐 多语言** - 支持中文和英文界面
+- **🌐 多语言** - 支持简体中文、繁体中文、英文、日语、西班牙语、德语、法语
 - **💾 本地存储** - 所有数据存储在本地，隐私安全有保障
 - **🖥️ 跨平台** - 支持 macOS、Windows、Linux
 - **📊 列表视图** - 表格式展示 Prompt，支持排序和批量操作
@@ -246,6 +264,22 @@ PromptHub/
 - [ ] 浏览器插件
 
 ## 📝 更新日志
+
+### v0.2.5 (2025-12-12)
+**新功能**
+- 🌐 添加多语言支持（简体中文、繁体中文、英文、日语、西班牙语、德语、法语）
+- 🪟 Windows 关闭窗口时可选择最小化到托盘或退出（支持记住选择）
+- 💬 关于页面添加问题反馈 Issue 按钮
+- 🌍 初始化数据根据用户语言自动选择对应语言版本
+- 📥 README 添加快速下载表格，支持 Windows/macOS/Linux 各架构一键下载
+- 🔔 优化软件更新功能，支持 Markdown 渲染 Release Notes
+- 🚀 启动时自动检查更新（可在设置中关闭）
+
+**优化**
+- 🎨 双语对照提示文案优化，不再硬编码"中英"
+
+**修复**
+- ☁️ 修复坚果云 WebDAV 同步失败问题（添加 MKCOL 目录创建和 User-Agent 头）
 
 ### v0.2.4 (2025-12-10)
 **新功能**

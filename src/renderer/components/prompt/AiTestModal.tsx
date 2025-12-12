@@ -107,14 +107,14 @@ export function AiTestModal({
     
     try {
       const messages = buildMessagesFromPrompt(systemPrompt, userPrompt);
-      const response = await chatCompletion(
+      const result = await chatCompletion(
         { provider: aiProvider, apiKey: aiApiKey, apiUrl: aiApiUrl, model: aiModel },
         messages
       );
-      setAiResponse(response);
+      setAiResponse(result.content);
       // 保存 AI 响应到 Prompt
-      if (onSaveResponse && response) {
-        onSaveResponse(prompt.id, response);
+      if (onSaveResponse && result.content) {
+        onSaveResponse(prompt.id, result.content);
       }
     } catch (error) {
       setAiResponse(`${t('common.error')}: ${error instanceof Error ? error.message : t('common.error')}`);

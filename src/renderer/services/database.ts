@@ -4,11 +4,14 @@
  */
 
 import type { Prompt, PromptVersion, Folder } from '../../shared/types';
+import { getSeedPrompts, getSeedFolders } from './seedData';
+import i18n from '../i18n';
 
 const DB_NAME = 'PromptHubDB';
 const DB_VERSION = 1;
 
 // 预制数据 - 3个文件夹：AI编程、角色扮演、绘图提示词
+// @deprecated 使用 seedData.ts 中的多语言数据
 const SEED_PROMPTS: Prompt[] = [
   // ========== AI 编程规则 ==========
   {
@@ -312,26 +315,33 @@ export async function seedDatabase(): Promise<void> {
 
   // 如果没有数据，填充种子数据
   if (promptCount === 0) {
-    console.log('Seeding database with initial data...');
+    // 获取当前语言
+    const currentLanguage = i18n.language || 'en';
+    console.log('Seeding database with initial data for language:', currentLanguage);
+    
+    // 获取对应语言的种子数据
+    const seedPrompts = getSeedPrompts(currentLanguage);
+    const seedFolders = getSeedFolders(currentLanguage);
+    
     const transaction = database.transaction([STORES.PROMPTS, STORES.FOLDERS], 'readwrite');
     const promptStore = transaction.objectStore(STORES.PROMPTS);
     const folderStore = transaction.objectStore(STORES.FOLDERS);
 
     // 添加预制 Prompts
-    for (const prompt of SEED_PROMPTS) {
+    for (const prompt of seedPrompts) {
       console.log('Adding prompt:', prompt.title);
       promptStore.add(prompt);
     }
 
     // 添加预制文件夹
-    for (const folder of SEED_FOLDERS) {
+    for (const folder of seedFolders) {
       console.log('Adding folder:', folder.name);
       folderStore.add(folder);
     }
 
     return new Promise((resolve, reject) => {
       transaction.oncomplete = () => {
-        console.log('✅ Database seeded successfully with', SEED_PROMPTS.length, 'prompts and', SEED_FOLDERS.length, 'folders');
+        console.log('✅ Database seeded successfully with', seedPrompts.length, 'prompts and', seedFolders.length, 'folders');
         resolve();
       };
       transaction.onerror = () => {

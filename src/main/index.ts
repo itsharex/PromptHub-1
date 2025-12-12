@@ -13,6 +13,10 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let minimizeToTray = false;
 let isQuitting = false;
+// 关闭行为: 'ask' = 每次询问, 'minimize' = 最小化到托盘, 'exit' = 直接退出
+// Close action: 'ask' = ask every time, 'minimize' = minimize to tray, 'exit' = exit directly
+let closeAction: 'ask' | 'minimize' | 'exit' = 'ask';
+let pendingCloseAction = false;  // 是否正在等待用户选择关闭行为
 
 // 注册特权协议（必须在 app ready 之前调用）
 protocol.registerSchemesAsPrivileged([
@@ -86,11 +90,35 @@ async function createWindow() {
   });
 
   // 关闭行为：根据设置决定是最小化到托盘还是关闭
+  // Close behavior: decide based on settings whether to minimize to tray or close
   mainWindow.on('close', (event) => {
-    if (minimizeToTray && !isQuitting) {
-      event.preventDefault();
-      mainWindow?.hide();
-      return false;
+    // 如果正在退出应用，直接关闭
+    if (isQuitting) return;
+    
+    const isWin = process.platform === 'win32';
+    
+    // Windows 平台特殊处理
+    if (isWin) {
+      if (closeAction === 'ask' && !pendingCloseAction) {
+        // 询问用户
+        event.preventDefault();
+        pendingCloseAction = true;
+        mainWindow?.webContents.send('window:showCloseDialog');
+        return false;
+      } else if (closeAction === 'minimize') {
+        // 最小化到托盘
+        event.preventDefault();
+        mainWindow?.hide();
+        return false;
+      }
+      // closeAction === 'exit' 时直接关闭
+    } else {
+      // macOS/Linux: 使用原有的 minimizeToTray 逻辑
+      if (minimizeToTray) {
+        event.preventDefault();
+        mainWindow?.hide();
+        return false;
+      }
     }
   });
 
@@ -131,6 +159,34 @@ ipcMain.on('app:setMinimizeToTray', (_event, enabled: boolean) => {
     createTray();
   } else {
     destroyTray();
+  }
+});
+
+// 设置关闭行为 (Windows) / Set close action (Windows)
+ipcMain.on('app:setCloseAction', (_event, action: 'ask' | 'minimize' | 'exit') => {
+  closeAction = action;
+  // 如果设置为最小化到托盘，确保托盘已创建
+  if (action === 'minimize' && process.platform === 'win32') {
+    createTray();
+  }
+});
+
+// 处理关闭对话框结果 / Handle close dialog result
+ipcMain.on('window:closeDialogResult', (_event, data: { action: 'minimize' | 'exit'; remember: boolean }) => {
+  pendingCloseAction = false;
+  
+  if (data.remember) {
+    closeAction = data.action;
+  }
+  
+  if (data.action === 'minimize') {
+    mainWindow?.hide();
+    // 确保托盘已创建
+    createTray();
+  } else {
+    // 退出应用
+    isQuitting = true;
+    mainWindow?.close();
   }
 });
 

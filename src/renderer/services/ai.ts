@@ -13,15 +13,26 @@ export interface ChatCompletionRequest {
   model: string;
   temperature?: number;
   max_tokens?: number;
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
   stream?: boolean;
+  enable_thinking?: boolean;
 }
 
 export interface ChatCompletionResponse {
   id: string;
   choices: {
     index: number;
-    message: ChatMessage;
+    message: ChatMessage & {
+      reasoning_content?: string;  // 思考模型的思考内容 / Thinking content for reasoning models
+    };
     finish_reason: string;
+    delta?: {
+      content?: string;
+      reasoning_content?: string;
+    };
   }[];
   usage?: {
     prompt_tokens: number;
@@ -30,12 +41,36 @@ export interface ChatCompletionResponse {
   };
 }
 
+// 对话模型参数
+// Chat model parameters
+export interface ChatParams {
+  temperature?: number;       // 温度 (0-2) / Temperature
+  maxTokens?: number;         // 最大 token 数 / Max tokens
+  topP?: number;              // Top-P 采样 / Top-P sampling
+  topK?: number;              // Top-K 采样 / Top-K sampling
+  frequencyPenalty?: number;  // 频率惩罚 / Frequency penalty
+  presencePenalty?: number;   // 存在惩罚 / Presence penalty
+  stream?: boolean;           // 流式输出 / Streaming output
+  enableThinking?: boolean;   // 思考模式 / Thinking mode
+}
+
+// 图像模型参数
+// Image model parameters
+export interface ImageParams {
+  size?: string;
+  quality?: 'standard' | 'hd';
+  style?: 'vivid' | 'natural';
+  n?: number;
+}
+
 export interface AIConfig {
   provider: string;
   apiKey: string;
   apiUrl: string;
   model: string;
   type?: 'chat' | 'image'; // 模型类型
+  chatParams?: ChatParams;
+  imageParams?: ImageParams;
 }
 
 // ============ 图像生成相关接口 ============
@@ -70,8 +105,24 @@ export interface ImageTestResult {
   provider: string;
 }
 
+// 流式输出回调接口
+// Streaming output callback interface
+export interface StreamCallbacks {
+  onContent?: (chunk: string) => void;           // 内容块回调 / Content chunk callback
+  onThinking?: (chunk: string) => void;          // 思考内容回调 / Thinking content callback
+  onComplete?: (fullContent: string, thinkingContent?: string) => void;  // 完成回调 / Completion callback
+}
+
+// 对话完成结果
+// Chat completion result
+export interface ChatCompletionResult {
+  content: string;
+  thinkingContent?: string;
+}
+
 /**
- * 调用 AI 模型进行对话
+ * 调用 AI 模型进行对话（支持流式输出和思考模型）
+ * Call AI model for chat (supports streaming and thinking models)
  */
 export async function chatCompletion(
   config: AIConfig,
@@ -79,10 +130,17 @@ export async function chatCompletion(
   options?: {
     temperature?: number;
     maxTokens?: number;
-    onStream?: (chunk: string) => void;
+    topP?: number;
+    topK?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    stream?: boolean;
+    enableThinking?: boolean;
+    onStream?: (chunk: string) => void;  // 兼容旧版 / Legacy compatibility
+    streamCallbacks?: StreamCallbacks;
   }
-): Promise<string> {
-  const { provider, apiKey, apiUrl, model } = config;
+): Promise<ChatCompletionResult> {
+  const { provider, apiKey, apiUrl, model, chatParams } = config;
   const providerId = provider?.toLowerCase() || '';
   
   if (!apiKey) {
@@ -97,18 +155,18 @@ export async function chatCompletion(
     throw new Error('请先选择模型');
   }
 
-  // 构建请求 URL
+  // 构建请求 URL / Build request URL
   let endpoint = apiUrl;
   if (!endpoint.endsWith('/chat/completions')) {
     endpoint = endpoint.replace(/\/$/, '') + '/chat/completions';
   }
 
-  // 构建请求头
+  // 构建请求头 / Build request headers
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
-  // 不同供应商的认证方式
+  // 不同供应商的认证方式 / Different provider authentication
   if (provider === 'anthropic') {
     headers['x-api-key'] = apiKey;
     headers['anthropic-version'] = '2023-06-01';
@@ -116,22 +174,59 @@ export async function chatCompletion(
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  // 构建请求体
+  // 合并参数：config.chatParams < options（options 优先级更高）
+  // Merge parameters: config.chatParams < options (options takes precedence)
+  const mergedParams = {
+    temperature: options?.temperature ?? chatParams?.temperature ?? 0.7,
+    maxTokens: options?.maxTokens ?? chatParams?.maxTokens ?? 2048,
+    topP: options?.topP ?? chatParams?.topP,
+    topK: options?.topK ?? chatParams?.topK,
+    frequencyPenalty: options?.frequencyPenalty ?? chatParams?.frequencyPenalty,
+    presencePenalty: options?.presencePenalty ?? chatParams?.presencePenalty,
+    stream: options?.stream ?? chatParams?.stream ?? false,
+    enableThinking: options?.enableThinking ?? chatParams?.enableThinking ?? false,
+  };
+
+  // 构建请求体 / Build request body
   const body: ChatCompletionRequest = {
     model,
     messages,
-    temperature: options?.temperature ?? 0.7,
-    max_tokens: options?.maxTokens ?? 2048,
-    stream: false,
+    temperature: mergedParams.temperature,
+    max_tokens: mergedParams.maxTokens,
+    stream: mergedParams.stream,
   };
 
-  // Qwen(通义) 非流式调用要求 enable_thinking=false，否则报错
+  // 添加可选参数 / Add optional parameters
+  if (mergedParams.topP !== undefined) {
+    body.top_p = mergedParams.topP;
+  }
+  if (mergedParams.topK !== undefined) {
+    body.top_k = mergedParams.topK;
+  }
+  if (mergedParams.frequencyPenalty !== undefined) {
+    body.frequency_penalty = mergedParams.frequencyPenalty;
+  }
+  if (mergedParams.presencePenalty !== undefined) {
+    body.presence_penalty = mergedParams.presencePenalty;
+  }
+
+  // 检测是否为 Qwen 模型 / Detect if Qwen model
   const isQwen =
     providerId.includes('qwen') ||
     providerId.includes('dashscope') ||
     model.toLowerCase().includes('qwen');
-  if (!body.stream && isQwen) {
-    (body as any).enable_thinking = false;
+
+  // 处理思考模式 / Handle thinking mode
+  // 只有在流式模式下才能启用思考，非流式必须禁用
+  if (isQwen) {
+    if (mergedParams.stream && mergedParams.enableThinking) {
+      body.enable_thinking = true;
+    } else {
+      body.enable_thinking = false;
+    }
+  } else if (mergedParams.enableThinking) {
+    // 其他支持思考的模型（如 DeepSeek）
+    body.enable_thinking = true;
   }
 
   try {
@@ -155,13 +250,23 @@ export async function chatCompletion(
       throw new Error(errorMessage);
     }
 
+    // 流式输出处理 / Streaming output handling
+    if (mergedParams.stream) {
+      return await handleStreamResponse(response, options?.onStream, options?.streamCallbacks);
+    }
+
+    // 非流式响应 / Non-streaming response
     const data: ChatCompletionResponse = await response.json();
     
     if (!data.choices || data.choices.length === 0) {
       throw new Error('AI 返回结果为空');
     }
 
-    return data.choices[0].message.content;
+    const message = data.choices[0].message;
+    return {
+      content: message.content,
+      thinkingContent: message.reasoning_content,
+    };
   } catch (error) {
     if (error instanceof Error) {
       throw error;
@@ -170,9 +275,78 @@ export async function chatCompletion(
   }
 }
 
+/**
+ * 处理流式响应
+ * Handle streaming response
+ */
+async function handleStreamResponse(
+  response: Response,
+  onStream?: (chunk: string) => void,
+  streamCallbacks?: StreamCallbacks
+): Promise<ChatCompletionResult> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('无法读取响应流');
+  }
+
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let thinkingContent = '';
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (!trimmed.startsWith('data: ')) continue;
+
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const delta = json.choices?.[0]?.delta;
+          
+          if (delta) {
+            // 处理思考内容 / Handle thinking content
+            if (delta.reasoning_content) {
+              thinkingContent += delta.reasoning_content;
+              streamCallbacks?.onThinking?.(delta.reasoning_content);
+            }
+            
+            // 处理正常内容 / Handle normal content
+            if (delta.content) {
+              fullContent += delta.content;
+              onStream?.(delta.content);
+              streamCallbacks?.onContent?.(delta.content);
+            }
+          }
+        } catch {
+          // 忽略解析错误 / Ignore parse errors
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  streamCallbacks?.onComplete?.(fullContent, thinkingContent || undefined);
+
+  return {
+    content: fullContent,
+    thinkingContent: thinkingContent || undefined,
+  };
+}
+
 export interface AITestResult {
   success: boolean;
   response?: string;
+  thinkingContent?: string;  // 思考内容 / Thinking content
   error?: string;
   latency?: number; // 响应时间 (ms)
   model: string;
@@ -180,23 +354,33 @@ export interface AITestResult {
 }
 
 /**
- * 测试 AI 配置是否可用（带详细结果）
+ * 测试 AI 配置是否可用（带详细结果，支持流式输出）
+ * Test AI configuration (with detailed results, supports streaming)
  */
 export async function testAIConnection(
   config: AIConfig,
-  testPrompt?: string
+  testPrompt?: string,
+  streamCallbacks?: StreamCallbacks
 ): Promise<AITestResult> {
   const startTime = Date.now();
   const prompt = testPrompt || 'Hello! Please respond with a brief greeting.';
   
+  // 使用配置中的参数，但限制 maxTokens 用于测试
+  const useStream = config.chatParams?.stream ?? false;
+  
   try {
     const result = await chatCompletion(config, [
       { role: 'user', content: prompt }
-    ], { maxTokens: 100 });
+    ], { 
+      maxTokens: 2048,
+      stream: useStream,
+      streamCallbacks,
+    });
     
     return {
       success: true,
-      response: result,
+      response: result.content,
+      thinkingContent: result.thinkingContent,
       latency: Date.now() - startTime,
       model: config.model,
       provider: config.provider,
@@ -370,7 +554,8 @@ export interface MultiModelCompareResult {
 }
 
 /**
- * 多模型提示词对比分析（并行执行）
+ * 多模型提示词对比分析（并行执行，支持流式输出）
+ * Multi-model prompt comparison (parallel execution, supports streaming)
  */
 export async function multiModelCompare(
   configs: AIConfig[],
@@ -378,18 +563,26 @@ export async function multiModelCompare(
   options?: {
     temperature?: number;
     maxTokens?: number;
+    streamCallbacksMap?: Map<string, StreamCallbacks>;  // 每个模型的流式回调
   }
 ): Promise<MultiModelCompareResult> {
   const startTime = Date.now();
   
   const promises = configs.map(async (config) => {
     const resultStartTime = Date.now();
+    const streamCallbacks = options?.streamCallbacksMap?.get(config.model);
+    
     try {
-      const response = await chatCompletion(config, messages, options);
+      const result = await chatCompletion(config, messages, {
+        temperature: options?.temperature,
+        maxTokens: options?.maxTokens,
+        streamCallbacks,
+      });
       
       return {
         success: true,
-        response,
+        response: result.content,
+        thinkingContent: result.thinkingContent,
         latency: Date.now() - resultStartTime,
         model: config.model,
         provider: config.provider,

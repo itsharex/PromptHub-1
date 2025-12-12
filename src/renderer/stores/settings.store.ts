@@ -36,6 +36,28 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 // AI 模型类型
 export type AIModelType = 'chat' | 'image';
 
+// 对话模型参数配置
+// Chat model parameters configuration
+export interface ChatModelParams {
+  temperature?: number;       // 温度 (0-2)，控制随机性 / Temperature, controls randomness
+  maxTokens?: number;         // 最大输出 token 数 / Max output tokens
+  topP?: number;              // Top-P 采样 (0-1) / Top-P sampling
+  topK?: number;              // Top-K 采样 / Top-K sampling
+  frequencyPenalty?: number;  // 频率惩罚 (-2 to 2) / Frequency penalty
+  presencePenalty?: number;   // 存在惩罚 (-2 to 2) / Presence penalty
+  stream?: boolean;           // 是否启用流式输出 / Enable streaming output
+  enableThinking?: boolean;   // 是否启用思考模式（思考模型专用）/ Enable thinking mode
+}
+
+// 图像模型参数配置
+// Image model parameters configuration
+export interface ImageModelParams {
+  size?: string;              // 图像尺寸，如 1024x1024 / Image size
+  quality?: 'standard' | 'hd'; // 图像质量 / Image quality
+  style?: 'vivid' | 'natural'; // 图像风格 / Image style
+  n?: number;                 // 生成数量 / Number of images to generate
+}
+
 // AI 模型配置类型
 export interface AIModelConfig {
   id: string;
@@ -46,6 +68,9 @@ export interface AIModelConfig {
   apiUrl: string;
   model: string;      // 模型名称，如 gpt-4o, dall-e-3
   isDefault?: boolean;
+  // 自定义参数 / Custom parameters
+  chatParams?: ChatModelParams;
+  imageParams?: ImageModelParams;
 }
 
 interface SettingsState {
@@ -65,13 +90,16 @@ interface SettingsState {
   launchAtStartup: boolean;
   minimizeOnLaunch: boolean;
   
+  // 关闭行为设置 (Windows) / Close behavior settings (Windows)
+  closeAction: 'ask' | 'minimize' | 'exit';  // ask=每次询问, minimize=最小化到托盘, exit=直接退出
+  
   // 通知设置
   enableNotifications: boolean;
   showCopyNotification: boolean;
   showSaveNotification: boolean;
   
-  // 语言设置
-  language: 'zh' | 'en';
+  // 语言设置 / Language settings
+  language: string;  // zh, zh-TW, en, ja, es, de, fr
   
   // 数据路径
   dataPath: string;
@@ -110,10 +138,11 @@ interface SettingsState {
   setShowLineNumbers: (enabled: boolean) => void;
   setLaunchAtStartup: (enabled: boolean) => void;
   setMinimizeOnLaunch: (enabled: boolean) => void;
+  setCloseAction: (action: 'ask' | 'minimize' | 'exit') => void;
   setEnableNotifications: (enabled: boolean) => void;
   setShowCopyNotification: (enabled: boolean) => void;
   setShowSaveNotification: (enabled: boolean) => void;
-  setLanguage: (lang: 'zh' | 'en') => void;
+  setLanguage: (lang: string) => void;
   setDataPath: (path: string) => void;
   setWebdavEnabled: (enabled: boolean) => void;
   setWebdavUrl: (url: string) => void;
@@ -153,6 +182,7 @@ export const useSettingsStore = create<SettingsState>()(
       showLineNumbers: false,
       launchAtStartup: false,
       minimizeOnLaunch: true,
+      closeAction: 'ask' as const,  // 默认每次询问 / Default to ask every time
       enableNotifications: true,
       showCopyNotification: true,
       showSaveNotification: true,
@@ -222,6 +252,11 @@ export const useSettingsStore = create<SettingsState>()(
         set({ minimizeOnLaunch: enabled });
         // 通知主进程更新托盘状态
         window.electron?.setMinimizeToTray?.(enabled);
+      },
+      setCloseAction: (action) => {
+        set({ closeAction: action });
+        // 通知主进程更新关闭行为 / Notify main process of close action change
+        window.electron?.setCloseAction?.(action);
       },
       setEnableNotifications: (enabled) => set({ enableNotifications: enabled }),
       setShowCopyNotification: (enabled) => set({ showCopyNotification: enabled }),

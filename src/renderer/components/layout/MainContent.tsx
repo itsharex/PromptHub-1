@@ -269,11 +269,11 @@ export function MainContent() {
 
     try {
       const messages = buildMessagesFromPrompt(systemPrompt, userPrompt);
-      const response = await chatCompletion(
+      const result = await chatCompletion(
         { provider: aiProvider, apiKey: aiApiKey, apiUrl: aiApiUrl, model: aiModel },
         messages
       );
-      setAiResponse(response);
+      setAiResponse(result.content);
     } catch (error) {
       setAiResponse(`${t('common.error')}: ${error instanceof Error ? error.message : t('common.error')}`);
       showToast(t('toast.aiFailed'), 'error');

@@ -35,15 +35,15 @@ import {
   XIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  MessageSquareIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { downloadBackup, restoreFromFile, clearDatabase } from '../../services/database';
 import { testConnection, uploadToWebDAV, downloadFromWebDAV } from '../../services/webdav';
-import { testAIConnection, testImageGeneration, fetchAvailableModels, getBaseUrl, getApiEndpointPreview, getImageApiEndpointPreview, AITestResult, ImageTestResult, ModelInfo } from '../../services/ai';
+import { testAIConnection, testImageGeneration, fetchAvailableModels, getBaseUrl, getApiEndpointPreview, getImageApiEndpointPreview, AITestResult, ImageTestResult, ModelInfo, StreamCallbacks } from '../../services/ai';
 import { useSettingsStore, MORANDI_THEMES, FONT_SIZES, ThemeMode } from '../../stores/settings.store';
 import { useToast } from '../ui/Toast';
 import { Select, SelectOption } from '../ui/Select';
-import { UpdateDialog } from '../UpdateDialog';
 import { getCategoryIcon } from '../ui/ModelIcons';
 
 interface SettingsPageProps {
@@ -121,7 +121,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   
   // 更新对话框状态
-  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [appVersion, setAppVersion] = useState<string>('');
   const [editingModelType, setEditingModelType] = useState<'chat' | 'image'>('chat');
   const [newModel, setNewModel] = useState({
@@ -131,6 +130,26 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     apiUrl: '',
     model: '',
   });
+  // 对话模型参数配置状态 / Chat model parameters state
+  const [chatParams, setChatParams] = useState({
+    temperature: 0.7,
+    maxTokens: 2048,
+    topP: 1.0,
+    topK: undefined as number | undefined,
+    frequencyPenalty: 0,
+    presencePenalty: 0,
+    stream: false,
+    enableThinking: false,
+  });
+  // 图像模型参数配置状态 / Image model parameters state
+  const [imageParams, setImageParams] = useState({
+    size: '1024x1024',
+    quality: 'standard' as 'standard' | 'hd',
+    style: 'vivid' as 'vivid' | 'natural',
+    n: 1,
+  });
+  // 是否显示高级参数 / Show advanced parameters
+  const [showAdvancedParams, setShowAdvancedParams] = useState(false);
   const [testingModelId, setTestingModelId] = useState<string | null>(null);
 
   // 获取模型列表状态（对话模型）
@@ -175,23 +194,47 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [clearPwd, setClearPwd] = useState('');
   const [clearLoading, setClearLoading] = useState(false);
 
-  // 测试单个对话模型
+  // 流式输出状态 / Streaming output state
+  const [streamingContent, setStreamingContent] = useState('');
+  const [streamingThinking, setStreamingThinking] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  // 测试单个对话模型（支持流式输出和参数配置）
+  // Test single chat model (supports streaming and parameter config)
   const handleTestModel = async (model: typeof settings.aiModels[0]) => {
     setTestingModelId(model.id);
     setAiTestResult(null);
+    setStreamingContent('');
+    setStreamingThinking('');
     
-    const result = await testAIConnection({
-      provider: model.provider,
-      apiKey: model.apiKey,
-      apiUrl: model.apiUrl,
-      model: model.model,
-    });
+    const useStream = model.chatParams?.stream ?? false;
     
+    if (useStream) {
+      setIsStreaming(true);
+    }
+    
+    const result = await testAIConnection(
+      {
+        provider: model.provider,
+        apiKey: model.apiKey,
+        apiUrl: model.apiUrl,
+        model: model.model,
+        chatParams: model.chatParams,
+      },
+      undefined,
+      useStream ? {
+        onContent: (chunk) => setStreamingContent(prev => prev + chunk),
+        onThinking: (chunk) => setStreamingThinking(prev => prev + chunk),
+      } : undefined
+    );
+    
+    setIsStreaming(false);
     setAiTestResult(result);
     setTestingModelId(null);
     
     if (result.success) {
-      showToast(`连接成功 (${result.latency}ms)`, 'success');
+      const thinkingInfo = result.thinkingContent ? ' (含思考过程)' : '';
+      showToast(`连接成功 (${result.latency}ms)${thinkingInfo}`, 'success');
     } else {
       showToast(result.error || '连接失败', 'error');
     }
@@ -755,6 +798,24 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   onChange={settings.setMinimizeOnLaunch}
                 />
               </SettingItem>
+              {/* Windows 关闭行为设置 */}
+              {navigator.platform.toLowerCase().includes('win') && (
+                <SettingItem
+                  label={t('settings.closeAction')}
+                  description={t('settings.closeActionDesc')}
+                >
+                  <Select
+                    value={settings.closeAction}
+                    onChange={(value) => settings.setCloseAction(value as 'ask' | 'minimize' | 'exit')}
+                    options={[
+                      { value: 'ask', label: t('settings.askEveryTime') },
+                      { value: 'minimize', label: t('settings.closeToTray') },
+                      { value: 'exit', label: t('settings.closeApp') },
+                    ]}
+                    className="w-40"
+                  />
+                </SettingItem>
+              )}
             </SettingSection>
 
             <SettingSection title={t('settings.editor')}>
@@ -1315,6 +1376,21 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                                           apiUrl: model.apiUrl,
                                           model: model.model,
                                         });
+                                        // 加载已保存的参数 / Load saved parameters
+                                        if (model.chatParams) {
+                                          setChatParams({
+                                            temperature: model.chatParams.temperature ?? 0.7,
+                                            maxTokens: model.chatParams.maxTokens ?? 2048,
+                                            topP: model.chatParams.topP ?? 1.0,
+                                            topK: model.chatParams.topK,
+                                            frequencyPenalty: model.chatParams.frequencyPenalty ?? 0,
+                                            presencePenalty: model.chatParams.presencePenalty ?? 0,
+                                            stream: model.chatParams.stream ?? false,
+                                            enableThinking: model.chatParams.enableThinking ?? false,
+                                          });
+                                        } else {
+                                          setChatParams({ temperature: 0.7, maxTokens: 2048, topP: 1.0, topK: undefined, frequencyPenalty: 0, presencePenalty: 0, stream: false, enableThinking: false });
+                                        }
                                         setShowAddChatModel(true);
                                       }}
                                       className="p-1.5 rounded hover:bg-muted transition-colors"
@@ -1439,22 +1515,179 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                         className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm"
                       />
                     </div>
+                    
+                    {/* 高级参数配置 / Advanced Parameters */}
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowAdvancedParams(!showAdvancedParams)}
+                        className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="text-sm font-medium">{t('settings.advancedParams')}</span>
+                        {showAdvancedParams ? (
+                          <ChevronDownIcon className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </button>
+                      
+                      {showAdvancedParams && (
+                        <div className="p-3 space-y-4 border-t border-border">
+                          {/* 流式输出开关 / Stream Output Toggle */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="text-sm font-medium">{t('settings.streamOutput')}</label>
+                              <p className="text-xs text-muted-foreground">{t('settings.streamOutputDesc')}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setChatParams({ ...chatParams, stream: !chatParams.stream })}
+                              className={`relative w-11 h-6 rounded-full transition-colors ${chatParams.stream ? 'bg-primary' : 'bg-muted'}`}
+                            >
+                              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${chatParams.stream ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+                          
+                          {/* 思考模式开关 / Thinking Mode Toggle */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="text-sm font-medium">{t('settings.enableThinking')}</label>
+                              <p className="text-xs text-muted-foreground">{t('settings.enableThinkingDesc')}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setChatParams({ ...chatParams, enableThinking: !chatParams.enableThinking })}
+                              className={`relative w-11 h-6 rounded-full transition-colors ${chatParams.enableThinking ? 'bg-primary' : 'bg-muted'}`}
+                            >
+                              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${chatParams.enableThinking ? 'translate-x-5' : ''}`} />
+                            </button>
+                          </div>
+                          
+                          {/* 温度滑动条 / Temperature Slider */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium">{t('settings.temperature')}</label>
+                              <span className="text-xs text-muted-foreground font-mono">{chatParams.temperature.toFixed(1)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="2"
+                              step="0.1"
+                              value={chatParams.temperature}
+                              onChange={(e) => setChatParams({ ...chatParams, temperature: parseFloat(e.target.value) })}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t('settings.temperatureDesc')}</p>
+                          </div>
+                          
+                          {/* 最大 Token / Max Tokens */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium">{t('settings.maxTokens')}</label>
+                              <span className="text-xs text-muted-foreground font-mono">{chatParams.maxTokens}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="256"
+                              max="32768"
+                              step="256"
+                              value={chatParams.maxTokens}
+                              onChange={(e) => setChatParams({ ...chatParams, maxTokens: parseInt(e.target.value) })}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t('settings.maxTokensDesc')}</p>
+                          </div>
+                          
+                          {/* Top P 滑动条 / Top P Slider */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium">{t('settings.topP')}</label>
+                              <span className="text-xs text-muted-foreground font-mono">{chatParams.topP.toFixed(2)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={chatParams.topP}
+                              onChange={(e) => setChatParams({ ...chatParams, topP: parseFloat(e.target.value) })}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t('settings.topPDesc')}</p>
+                          </div>
+                          
+                          {/* 频率惩罚 / Frequency Penalty */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium">{t('settings.frequencyPenalty')}</label>
+                              <span className="text-xs text-muted-foreground font-mono">{chatParams.frequencyPenalty.toFixed(1)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.1"
+                              value={chatParams.frequencyPenalty}
+                              onChange={(e) => setChatParams({ ...chatParams, frequencyPenalty: parseFloat(e.target.value) })}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t('settings.frequencyPenaltyDesc')}</p>
+                          </div>
+                          
+                          {/* 存在惩罚 / Presence Penalty */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-sm font-medium">{t('settings.presencePenalty')}</label>
+                              <span className="text-xs text-muted-foreground font-mono">{chatParams.presencePenalty.toFixed(1)}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.1"
+                              value={chatParams.presencePenalty}
+                              onChange={(e) => setChatParams({ ...chatParams, presencePenalty: parseFloat(e.target.value) })}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">{t('settings.presencePenaltyDesc')}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <button
                       onClick={() => {
                         if (!newModel.apiKey || !newModel.apiUrl || !newModel.model) {
                           showToast(t('settings.fillComplete'), 'error');
                           return;
                         }
+                        // 构建包含参数的模型配置 / Build model config with parameters
+                        const modelConfig = {
+                          ...newModel,
+                          type: 'chat' as const,
+                          chatParams: {
+                            temperature: chatParams.temperature,
+                            maxTokens: chatParams.maxTokens,
+                            topP: chatParams.topP,
+                            frequencyPenalty: chatParams.frequencyPenalty,
+                            presencePenalty: chatParams.presencePenalty,
+                            stream: chatParams.stream,
+                            enableThinking: chatParams.enableThinking,
+                          },
+                        };
                         if (editingModelId && editingModelType === 'chat') {
-                          settings.updateAiModel(editingModelId, { ...newModel, type: 'chat' });
+                          settings.updateAiModel(editingModelId, modelConfig);
                           showToast(t('settings.modelUpdated'), 'success');
                         } else {
-                          settings.addAiModel({ ...newModel, type: 'chat' });
+                          settings.addAiModel(modelConfig);
                           showToast(t('settings.modelAdded'), 'success');
                         }
                         setShowAddChatModel(false);
                         setEditingModelId(null);
                         setNewModel({ name: '', provider: 'openai', apiKey: '', apiUrl: '', model: '' });
+                        setChatParams({ temperature: 0.7, maxTokens: 2048, topP: 1.0, topK: undefined, frequencyPenalty: 0, presencePenalty: 0, stream: false, enableThinking: false });
+                        setShowAdvancedParams(false);
                       }}
                       className="w-full h-9 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
                     >
@@ -1741,7 +1974,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       case 'language':
         const languageOptions: SelectOption[] = [
           { value: 'zh', label: '简体中文' },
+          { value: 'zh-TW', label: '繁體中文' },
           { value: 'en', label: 'English' },
+          { value: 'ja', label: '日本語' },
+          { value: 'es', label: 'Español' },
+          { value: 'de', label: 'Deutsch' },
+          { value: 'fr', label: 'Français' },
         ];
         return (
           <div className="space-y-6">
@@ -1752,9 +1990,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               >
                 <Select
                   value={settings.language}
-                  onChange={(value) => settings.setLanguage(value as 'zh' | 'en')}
+                  onChange={(value) => settings.setLanguage(value)}
                   options={languageOptions}
-                  className="w-32"
+                  className="w-40"
                 />
               </SettingItem>
             </SettingSection>
@@ -1825,7 +2063,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               </SettingItem>
               <SettingItem label={t('settings.checkUpdate')} description={`${t('settings.version')}: ${appVersion || '...'}`}>
                 <button
-                  onClick={() => setShowUpdateDialog(true)}
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-update-dialog'))}
                   className="h-8 px-4 rounded-lg bg-primary text-white text-sm hover:bg-primary/90 transition-colors"
                 >
                   {t('settings.checkUpdate')}
@@ -1842,6 +2080,17 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   className="text-primary text-sm hover:underline"
                 >
                   GitHub
+                </a>
+              </SettingItem>
+              <SettingItem label={t('settings.reportIssue')} description={t('settings.reportIssueDesc')}>
+                <a 
+                  href="https://github.com/legeling/PromptHub/issues/new" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 px-4 rounded-lg bg-orange-500 text-white text-sm hover:bg-orange-600 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <MessageSquareIcon className="w-4 h-4" />
+                  Issue
                 </a>
               </SettingItem>
             </SettingSection>
@@ -1930,11 +2179,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
       </div>
 
-      {/* 更新对话框 */}
-      <UpdateDialog
-        isOpen={showUpdateDialog}
-        onClose={() => setShowUpdateDialog(false)}
-      />
 
       {/* 清除数据确认弹窗 */}
       {showClearConfirm && (

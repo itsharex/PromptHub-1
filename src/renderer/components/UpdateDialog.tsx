@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DownloadIcon, CheckCircleIcon, XIcon, Loader2Icon, RefreshCwIcon } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-interface UpdateInfo {
+export interface UpdateInfo {
   version: string;
   releaseNotes?: string;
   releaseDate?: string;
 }
 
-interface ProgressInfo {
+export interface ProgressInfo {
   percent: number;
   bytesPerSecond: number;
   total: number;
   transferred: number;
 }
 
-type UpdateStatus = 
+export type UpdateStatus = 
   | { status: 'checking' }
   | { status: 'available'; info: UpdateInfo }
   | { status: 'not-available'; info: UpdateInfo }
@@ -26,12 +28,19 @@ type UpdateStatus =
 interface UpdateDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  initialStatus?: UpdateStatus | null;
 }
 
-export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
+export function UpdateDialog({ isOpen, onClose, initialStatus }: UpdateDialogProps) {
   const { t } = useTranslation();
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(initialStatus || null);
   const [currentVersion, setCurrentVersion] = useState<string>('');
+
+  useEffect(() => {
+    if (initialStatus) {
+      setUpdateStatus(initialStatus);
+    }
+  }, [initialStatus]);
 
   useEffect(() => {
     // 获取当前版本
@@ -43,6 +52,33 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
     };
 
     window.electron?.updater?.onStatus(handleStatus);
+
+    // --- DEV MODE: Simulate update status for testing UI ---
+    // 开发模式：模拟更新状态以测试 UI
+    if (process.env.NODE_ENV === 'development') {
+      // Uncomment one of the following to test different states:
+      // 取消注释以下任一项来测试不同状态：
+      
+      setTimeout(() => {
+        setUpdateStatus({
+          status: 'available',
+          info: {
+            version: '0.2.6-beta',
+            releaseNotes: `## 🚀 新功能 / New Features\n- 模拟开发环境下的更新提示\n- Simulated update prompt in dev mode\n\n## ✨ 优化 / Improvements\n- 更好的更新体验\n- Better update experience\n\n## 🐛 修复 / Bug Fixes\n- 修复了一些已知问题\n- Fixed some known issues`,
+            releaseDate: new Date().toISOString(),
+          },
+        });
+      }, 1500);
+      
+      setTimeout(() => {
+        setUpdateStatus({ status: 'not-available', info: { version: '0.2.5' } });
+      }, 1500);
+      
+      setTimeout(() => {
+        setUpdateStatus({ status: 'downloading', progress: { percent: 45, bytesPerSecond: 1024000, total: 50000000, transferred: 22500000 } });
+      }, 1500);
+    }
+    // --- END DEV MODE ---
 
     return () => {
       window.electron?.updater?.offStatus();
@@ -119,11 +155,13 @@ export function UpdateDialog({ isOpen, onClose }: UpdateDialogProps) {
               </div>
             </div>
             {updateStatus.info.releaseNotes && (
-              <div className="mb-4 p-3 rounded-lg bg-muted/50 max-h-40 overflow-y-auto">
+              <div className="mb-4 p-3 rounded-lg bg-muted/50 max-h-60 overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
                 <p className="text-xs font-medium text-muted-foreground mb-1">
                   {t('settings.releaseNotes')}
                 </p>
-                <p className="text-sm whitespace-pre-wrap">{updateStatus.info.releaseNotes}</p>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {updateStatus.info.releaseNotes}
+                </ReactMarkdown>
               </div>
             )}
             <div className="flex gap-2">

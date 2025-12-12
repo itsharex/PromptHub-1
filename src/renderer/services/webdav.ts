@@ -44,6 +44,45 @@ const BACKUP_FILENAME = 'prompthub-backup.json';
 const IMAGES_DIR = 'prompthub-images';
 
 /**
+ * 确保远程目录存在 (MKCOL)
+ */
+async function ensureDirectory(url: string, authHeader: string) {
+  try {
+    // 尝试创建目录
+    // 移除文件名部分，只保留目录路径
+    // 如果 url 本身就是目录路径（比如用户填写的 WebDAV 地址），则直接使用
+    // 注意：Nutstore 要求父目录必须存在。如果用户提供的路径是多级不存在的目录，这里简单的 MKCOL 可能失败。
+    // 但通常用户提供的是根目录下的一个文件夹，或者已经存在的路径。
+    // 我们只尝试对 config.url 进行 MKCOL。
+    
+    // 检查目录是否存在
+    const checkRes = await fetch(url, {
+      method: 'PROPFIND',
+      headers: {
+        'Authorization': authHeader,
+        'Depth': '0',
+        'User-Agent': 'PromptHub/1.0',
+      }
+    });
+
+    if (checkRes.ok || checkRes.status === 207) {
+      return; // 目录已存在
+    }
+
+    // 不存在则创建
+    await fetch(url, {
+      method: 'MKCOL',
+      headers: {
+        'Authorization': authHeader,
+        'User-Agent': 'PromptHub/1.0',
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to ensure directory:', e);
+  }
+}
+
+/**
  * 测试 WebDAV 连接
  */
 export async function testConnection(config: WebDAVConfig): Promise<SyncResult> {
@@ -53,6 +92,7 @@ export async function testConnection(config: WebDAVConfig): Promise<SyncResult> 
       headers: {
         'Authorization': 'Basic ' + btoa(`${config.username}:${config.password}`),
         'Depth': '0',
+        'User-Agent': 'PromptHub/1.0',
       },
     });
 
@@ -174,13 +214,19 @@ export async function uploadToWebDAV(config: WebDAVConfig): Promise<SyncResult> 
       aiConfig,
     };
 
+    const authHeader = 'Basic ' + btoa(`${config.username}:${config.password}`);
+
+    // Ensure remote directory exists
+    await ensureDirectory(config.url, authHeader);
+
     const fileUrl = `${config.url.replace(/\/$/, '')}/${BACKUP_FILENAME}`;
     
     const response = await fetch(fileUrl, {
       method: 'PUT',
       headers: {
-        'Authorization': 'Basic ' + btoa(`${config.username}:${config.password}`),
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
+        'User-Agent': 'PromptHub/1.0',
       },
       body: JSON.stringify(backupData, null, 2),
     });

@@ -9,6 +9,8 @@ import { autoSync } from './services/webdav';
 import { useToast } from './components/ui/Toast';
 import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core';
 import i18n from './i18n';
+import { UpdateDialog, UpdateStatus } from './components/UpdateDialog';
+import { CloseDialog } from './components/ui/CloseDialog';
 
 // 页面类型
 type PageType = 'home' | 'settings';
@@ -22,6 +24,54 @@ function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
+  
+  // Update state
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [initialUpdateStatus, setInitialUpdateStatus] = useState<UpdateStatus | null>(null);
+  
+  // Close dialog state (Windows)
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+
+  useEffect(() => {
+    // Listen for update status
+    const handleStatus = (status: UpdateStatus) => {
+      // If update available, show dialog
+      if (status.status === 'available') {
+        setInitialUpdateStatus(status);
+        setShowUpdateDialog(true);
+      }
+    };
+
+    window.electron?.updater?.onStatus(handleStatus);
+    
+    // Listen for close dialog trigger (Windows)
+    window.electron?.onShowCloseDialog?.(() => {
+      setShowCloseDialog(true);
+    });
+
+    // Check for updates on startup
+    // useSettingsStore.getState() might not be ready if persisted? 
+    // Usually zustand persist middleware handles it synchronously from localStorage if configured right.
+    // We'll delay slightly to be safe or just call it.
+    setTimeout(() => {
+        const settings = useSettingsStore.getState();
+        if (settings.autoCheckUpdate) {
+            window.electron?.updater?.check();
+        }
+    }, 1000);
+
+    // Listen for manual check trigger
+    const handleOpenUpdate = () => {
+       setInitialUpdateStatus(null);
+       setShowUpdateDialog(true);
+    };
+    window.addEventListener('open-update-dialog', handleOpenUpdate);
+
+    return () => {
+      // window.electron?.updater?.offStatus(); // Assuming offStatus exists or we just leave it (listeners might stack if HMR, but for prod it's fine)
+      window.removeEventListener('open-update-dialog', handleOpenUpdate);
+    };
+  }, []);
 
   // 处理 Prompt 拖拽到文件夹
   const handleDragEnd = (event: DragEndEvent) => {
@@ -179,6 +229,18 @@ function App() {
             )}
           </div>
         </div>
+        
+        <UpdateDialog 
+          isOpen={showUpdateDialog} 
+          onClose={() => setShowUpdateDialog(false)} 
+          initialStatus={initialUpdateStatus}
+        />
+        
+        {/* Windows 关闭对话框 */}
+        <CloseDialog
+          isOpen={showCloseDialog}
+          onClose={() => setShowCloseDialog(false)}
+        />
       </div>
     </DndContext>
   );

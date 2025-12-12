@@ -96,6 +96,14 @@ contextBridge.exposeInMainWorld('electron', {
   close: () => ipcRenderer.send('window:close'),
   setAutoLaunch: (enabled: boolean) => ipcRenderer.send('app:setAutoLaunch', enabled),
   setMinimizeToTray: (enabled: boolean) => ipcRenderer.send('app:setMinimizeToTray', enabled),
+  setCloseAction: (action: 'ask' | 'minimize' | 'exit') => ipcRenderer.send('app:setCloseAction', action),
+  // 关闭窗口对话框回调 / Close dialog callbacks
+  onShowCloseDialog: (callback: () => void) => {
+    ipcRenderer.on('window:showCloseDialog', () => callback());
+  },
+  sendCloseDialogResult: (action: 'minimize' | 'exit', remember: boolean) => {
+    ipcRenderer.send('window:closeDialogResult', { action, remember });
+  },
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
   showNotification: (title: string, body: string) => ipcRenderer.invoke('notification:show', { title, body }),
@@ -138,6 +146,9 @@ declare global {
       close?: () => void;
       setAutoLaunch?: (enabled: boolean) => void;
       setMinimizeToTray?: (enabled: boolean) => void;
+      setCloseAction?: (action: 'ask' | 'minimize' | 'exit') => void;
+      onShowCloseDialog?: (callback: () => void) => void;
+      sendCloseDialogResult?: (action: 'minimize' | 'exit', remember: boolean) => void;
       selectFolder?: () => Promise<string | null>;
       openPath?: (path: string) => Promise<{ success: boolean; error?: string }>;
       showNotification?: (title: string, body: string) => Promise<boolean>;
